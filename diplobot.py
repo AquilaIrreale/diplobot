@@ -603,47 +603,6 @@ class OrderBuilder:
                 raise BuilderError("There's already another order for {} ({})".format(t, o))
 
 
-
-    # TODO: maybe look into coroutines?
-    # TODO: make saner!!
-    #def push_old(self, s):
-    #    if self.kind is None:
-    #        if s.upper() in Order.kinds.values():
-    #            self.kind = s.upper()
-    #            return
-
-    #        try:
-    #            self.kind = Order.kinds[s.upper()]
-    #        except KeyError:
-    #            raise ValueError
-
-    #    elif not self.terr_complete:
-    #        if s in territories:
-    #            self.terr.append(territories.matchCase(s))
-    #            if self.kind != "CONV":
-    #                self.terr_complete = True
-    #        elif s.upper() == "DONE" and len(self.terr) >= 1:
-    #            self.terr.sort(key=str.lower)
-    #            self.terr_complete = True
-    #        else:
-    #            raise ValueError
-
-    #    elif self.orig is None and self.kind in {"CONV", "SUPM"}:
-    #        if s in territories:
-    #            self.orig = territories.matchCase(s)
-    #        else:
-    #            raise ValueError
-
-    #    elif self.targ is None:
-    #        if s in territories:
-    #            self.targ = territories.matchCase(s)
-    #        else:
-    #            raise ValueError
-
-
-
-
-
 class Player:
     def __init__(self, player_id, board):
         self.id = player_id
@@ -1133,37 +1092,6 @@ def order_msg_handler(bot, update, game, player):
 
         else:
             show_order_menu(bot, game, player, ntf)
-
-
-#def order_msg_handler(bot, update, game):
-#    player_id = update.message.chat.id
-#    s = update.message.text
-#
-#    if s.lower() == 'back':
-#        if game.curOrder[player_id].next_to_fill() == 'ISARMY':
-#            game.curOrder[player_id] = None
-#            show_command_menu(bot, game, player_id)
-#
-#        else:
-#            game.curOrder[player_id].rollback()
-#            show_order_menu(bot, game, player_id)
-#
-#        return
-#
-#    try:
-#        game.curOrder[player_id].push(s)
-#
-#    except ValueError:
-#        update.message.reply_text("Error (invalid data - placeholder)", quote=False)
-#        return
-#
-#    if game.curOrder[player_id].next_to_fill() == "DONE":
-#        game.orders[player_id].append(game.curOrder[playerId])
-#        game.curOrder[player_id] = None
-#        show_command_menu(bot, game, player_id)
-#
-#    else:
-#        show_order_menu(bot, game, player_id)
 
 
 def delete_cmd(bot, update):
