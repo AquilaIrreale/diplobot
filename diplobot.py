@@ -163,18 +163,18 @@ terr_names = InsensitiveList(
     sorted({strip_coast(t) for t in chain(land_graph.vertices(), sea_graph.vertices())}))
 
 
-terr_names = InsensitiveList([
+terr_names = InsensitiveList((
     "Alb", "Ank", "Apu", "Arm", "Bel", "Ber", "Boh", "Bre",
     "Bud", "Bul", "Bur", "Cly", "Con", "Den", "Edi", "Fin",
     "Gal", "Gas", "Gre", "Hol", "Kie", "Lon", "Lvn", "Lvp",
     "Mar", "Mos", "Mun", "NAf", "Nap", "Nwy", "Par", "Pic",
     "Pie", "Por", "Pru", "Rom", "Ruh", "Rum", "Ser", "Sev",
-    "Sil", "Smy", "Spa", "StP", "Swe", "Syr", "Tri",
-    "Tun", "Tus", "Tyr", "Ukr", "Ven", "Vie", "Wal", "War",
-    "Yor", "AEG", "ADR", "BAL", "BAR", "BLA", "BOT", "EAS",
-    "ENG", "HEL", "ION", "IRI", "LYO", "MAO", "NAO", "NTH",
-    "NWG", "SKA", "TYS", "WES"
-])
+    "Sil", "Smy", "Spa", "StP", "Swe", "Syr", "Tri", "Tun",
+    "Tus", "Tyr", "Ukr", "Ven", "Vie", "Wal", "War", "Yor",
+    "AEG", "ADR", "BAL", "BAR", "BLA", "BOT", "EAS", "ENG",
+    "HEL", "ION", "IRI", "LYO", "MAO", "NAO", "NTH", "NWG",
+    "SKA", "TYS", "WES"
+))
 
 
 class TerrInfo:
