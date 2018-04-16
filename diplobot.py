@@ -734,7 +734,14 @@ def game_status_guard(update, game, status):
 
 def player_not_ready_guard(update, player):
     if player.ready:
-        update.message.reply_text("You have already submitted you orders", quote=False)
+        update.message.reply_text(
+            "You have already committed you orders. Withdraw with /unready", quote=False)
+        raise HandlerGuard
+
+
+def player_ready_guard(update, player):
+    if not player.ready:
+        update.message.reply_text("You have not committed your orders yet", quote=False)
         raise HandlerGuard
 
 
@@ -1139,15 +1146,37 @@ def ready_cmd(bot, update):
         game_status_guard(update, game, "STARTED")
 
         player = game.players[update.message.chat.id]
-        player_not_ready_guard(update, player, False)
-        player_not_building_order_guard(update, player, False)
+        player_not_ready_guard(update, player)
+        player_not_building_order_guard(update, player)
 
     except HandlerGuard:
         return
 
+    update.message.reply_text("Orders committed. Withdraw with /unready")
+
     player.ready = True
 
     ready_check(bot, game)
+
+
+def unready_cmd(bot, update):
+    try:
+        private_chat_guard(update)
+
+        game = player_in_game_guard(update)
+        game_status_guard(update, game, "STARTED")
+
+        player = game.players[update.message.chat.id]
+        player_ready_guard(update, player)
+
+    except HandlerGuard:
+        return
+
+    update.message.reply_text("Orders withdrawn")
+
+    player.ready = False
+
+    show_command_menu(bot, game, player)
 
 
 def ready_check(bot, game):
@@ -1203,6 +1232,7 @@ def main():
     dp.add_handler(CommandHandler("new",       new_cmd))
     dp.add_handler(CommandHandler("delete",    delete_cmd))
     dp.add_handler(CommandHandler("ready",     ready_cmd))
+    dp.add_handler(CommandHandler("unready",   unready_cmd))
 
     #dp.add_handler(CallbackQueryHandler(newgame_cbh,      pattern = "NEWGAME_.*"))
     dp.add_handler(CallbackQueryHandler(nations_menu_cbh, pattern = "NATION_.*"))
