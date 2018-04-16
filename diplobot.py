@@ -445,16 +445,24 @@ class OrderBuilder:
         return "DONE"
 
     kinds = {
+        "H":               "HOLD",
+        "HOL":             "HOLD",
         "HOLD":            "HOLD",
-        "MOVE (ATTACK)":   "MOVE",
+        "M":               "MOVE",
+        "MOV":             "MOVE",
         "MOVE":            "MOVE",
         "ATTACK":          "MOVE",
+        "MOVE (ATTACK)":   "MOVE",
+        "SH":              "SUPH",
         "SUPPORT HOLD":    "SUPH",
         "SUPPORT TO HOLD": "SUPH",
         "SUPPORT A HOLD":  "SUPH",
+        "SM":              "SUPM",
         "SUPPORT MOVE":    "SUPM",
         "SUPPORT TO MOVE": "SUPM",
         "SUPPORT A MOVE":  "SUPM",
+        "C":               "CONV",
+        "CON":             "CONV",
         "CONVOY":          "CONV"
     }
 
