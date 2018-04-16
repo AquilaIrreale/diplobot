@@ -298,7 +298,7 @@ def make_board():
         "Lvn": Territory(),
         "Lvp": Territory(owner="ENGLAND", occupied="ENGLAND", kind="A"),
         "Mar": Territory(owner="FRANCE",  occupied="FRANCE",  kind="A"),
-        "Mos": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="F"),
+        "Mos": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="A"),
         "Mun": Territory(owner="GERMANY", occupied="GERMANY", kind="A"),
         "NAf": Territory(),
         "Nap": Territory(owner="ITALY",   occupied="ITALY",   kind="F"),
