@@ -3,6 +3,7 @@
 import re
 import random
 import logging
+from copy import copy
 from itertools import chain
 
 from telegram import TelegramError, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
@@ -354,25 +355,11 @@ def make_board():
 class Order:
     def __init__(self):
         self.kind = None
-        self.terrs = set()
+        self.terr = None
         self.orig = None
         self.targ = None
         self.coast = None
         self.via_c = None
-
-    def get_terr(self):
-        try:
-            return next(iter(self.terrs))
-        except StopIteration:
-            return None
-
-    def set_terr(self, x):
-        self.terrs = {x}
-
-    def del_terr(self):
-        self.terrs = set()
-
-    terr = property(get_terr, set_terr, del_terr)
 
     def __str__(self):
         coast = "({})".format(self.coast) if self.coast else ""
@@ -385,13 +372,13 @@ class Order:
             return "{}-{}{}{}".format(self.terr, self.targ, coast, via_c)
 
         if self.kind == "SUPH":
-            return "{} S {}".format(", ".join(self.terrs), self.targ)
+            return "{} S {}".format(self.terr, self.targ)
 
         if self.kind == "SUPM":
-            return "{} S {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
+            return "{} S {}-{}".format(self.terr, self.orig, self.targ)
 
         if self.kind == "CONV":
-            return "{} C {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
+            return "{} C {}-{}".format(self.terr, self.orig, self.targ)
 
         return "Invalid order"
 
@@ -408,6 +395,7 @@ class OrderBuilder:
         self.orders = orders
         self.nation = nation
         self.building = None
+        self.terrs = set()
         self.terr_complete = False
         self.terr_delete = False
 
@@ -416,13 +404,26 @@ class OrderBuilder:
 
     def new(self):
         self.building = Order()
+        self.terrs = set()
         self.terr_complete = False
         self.terr_delete = False
 
     def pop(self):
-        ret = self.building
+        ret = set()
+        for t in self.terrs:
+            o = copy(self.building)
+            o.terr = t
+            ret.add(o)
+
         self.building = None
         return ret
+
+    @property
+    def terr(self):
+        try:
+            return next(iter(self.terrs))
+        except StopIteration:
+            return None
 
     def next_to_fill(self):
         if self.building.kind is None:
@@ -441,7 +442,7 @@ class OrderBuilder:
             return "TARG"
 
         if self.building.kind == "MOVE":
-            fleet = self.board[self.building.terr].kind == "F"
+            fleet = self.board[self.terr].kind == "F"
             split = terrinfo[self.building.targ].is_split
 
             if not fleet and self.building.via_c is None:
@@ -490,14 +491,14 @@ class OrderBuilder:
 
     def register_terr_list(self, s):
         if s == "DONE":
-            if not self.building.terrs:
+            if not self.terrs:
                 raise ValueError
 
             self.terr_complete = True
             return
 
         if s == "DELETE":
-            if not self.building.terrs:
+            if not self.terrs:
                 raise ValueError
 
             self.terr_delete = True
@@ -509,7 +510,7 @@ class OrderBuilder:
 
         if self.terr_delete:
             try:
-                self.building.terrs.remove(s)
+                self.terrs.remove(s)
             except KeyError:
                 raise ValueError
         else:
@@ -521,7 +522,7 @@ class OrderBuilder:
 
             self.validate_terr(t)
 
-            self.building.terrs.add(t)
+            self.terrs.add(t)
 
             if self.building.kind not in {"SUPH", "SUPM", "CONV"}:
                 self.terr_complete = True
@@ -568,7 +569,7 @@ class OrderBuilder:
                 return
 
             if self.terr_complete:
-                self.building.terrs = set()
+                self.terrs = set()
                 self.terr_complete = False
                 return
 
@@ -599,7 +600,7 @@ class OrderBuilder:
             raise BuilderError("You can't order someone else's unit")
 
         for o in self.orders:
-            if t in o.terrs:
+            if o.terr == t:
                 raise BuilderError("There's already another order for {} ({})".format(t, o))
 
 
@@ -607,12 +608,12 @@ class Player:
     def __init__(self, player_id, board):
         self.id = player_id
         self.nation = None
-        self.orders = []
+        self.orders = set()
         self.builder = OrderBuilder(board, self.orders)
         self.ready = False
 
     def reset(self):
-        del self.orders[:]
+        self.orders.clear()
         self.ready = False
 
     def set_nation(self, nation):
@@ -1087,7 +1088,7 @@ def order_msg_handler(bot, update, game, player):
 
     else:
         if ntf == "DONE":
-            player.orders.append(player.builder.pop())
+            player.orders.update(player.builder.pop())
             show_command_menu(bot, game, player)
 
         else:
