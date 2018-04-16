@@ -352,12 +352,9 @@ def make_board():
 
 
 class Order:
-    def __init__(self, board):
-        self.board = board
+    def __init__(self):
         self.kind = None
         self.terrs = set()
-        self.terr_complete = False
-        self.terr_delete = False
         self.orig = None
         self.targ = None
         self.coast = None
@@ -381,53 +378,68 @@ class Order:
         coast = "({})".format(self.coast) if self.coast else ""
         via_c = " C" if self.via_c else ""
 
-        try:
-            if self.next_to_fill() != "DONE":
-                return "Incomplete order"
+        if self.kind == "HOLD":
+            return "{} H".format(self.terr)
 
-            if self.kind == "HOLD":
-                return "{} H".format(self.terr)
+        if self.kind == "MOVE":
+            return "{}-{}{}{}".format(self.terr, self.targ, coast, via_c)
 
-            if self.kind == "MOVE":
-                return "{}-{}{}{}".format(self.terr, self.targ, coast, via_c)
+        if self.kind == "SUPH":
+            return "{} S {}".format(", ".join(self.terrs), self.targ)
 
-            if self.kind == "SUPH":
-                return "{} S {}".format(", ".join(self.terrs), self.targ)
+        if self.kind == "SUPM":
+            return "{} S {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
 
-            if self.kind == "SUPM":
-                return "{} S {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
+        if self.kind == "CONV":
+            return "{} C {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
 
-            if self.kind == "CONV":
-                return "{} C {}-{}".format(", ".join(self.terrs), self.orig, self.targ)
+        return "Invalid order"
 
-        except StopIteration:
-            return "Invalid order (empty terr)"
 
-        return "Invalid order (unknown kind)"
+class OrderBuilder:
+    def __init__(self, board, orders):
+        self.board = board
+        self.orders = orders
+        self.building = None
+        self.terr_complete = False
+        self.terr_delete = False
+
+    def __bool__(self):
+        return self.building is not None
+
+    def new(self):
+        self.building = Order()
+        self.terr_complete = False
+        self.terr_delete = False
+
+    def pop(self):
+        ret = self.building
+        self.building = None
+        return ret
 
     def next_to_fill(self):
-        if self.kind is None:
+        if self.building.kind is None:
             return "KIND"
 
         if not self.terr_complete:
-            return "TERR" if not self.terr_delete else "TERR_DELETE"
+            return "TERR"
 
-        if self.kind == "HOLD":
+        if self.building.kind == "HOLD":
             return "DONE"
 
-        if self.orig is None and self.kind in {"SUPM", "CONV"}:
+        if self.building.orig is None and self.building.kind in {"SUPM", "CONV"}:
             return "ORIG"
 
-        if self.targ is None:
+        if self.building.targ is None:
             return "TARG"
 
-        if self.kind == "MOVE":
-            fleet = self.board[self.terr].kind == "F"
-            split = terrinfo[self.targ].is_split
+        if self.building.kind == "MOVE":
+            fleet = self.board[self.building.terr].kind == "F"
+            split = terrinfo[self.building.targ].is_split
 
-            if not fleet and self.via_c is None:
+            if not fleet and self.building.via_c is None:
                 return "VIAC"
-            elif fleet and self.coast is None and split:
+            elif fleet and self.building.coast is None and split:
                 return "COAST"
 
         return "DONE"
@@ -450,27 +462,27 @@ class Order:
 
     def register_kind(self, s):
         try:
-            self.kind = self.kinds[s]
+            self.building.kind = self.kinds[s]
         except KeyError:
             pass
         else:
             return
 
         if s in self.kind_codes:
-            self.kind = s
+            self.building.kind = s
         else:
             raise ValueError
 
     def register_terr_list(self, s):
         if s == "DONE":
-            if not self.terrs:
+            if not self.building.terrs:
                 raise ValueError
 
             self.terr_complete = True
             return
 
         if s == "DELETE":
-            if not self.terrs:
+            if not self.building.terrs:
                 raise ValueError
 
             self.terr_delete = True
@@ -488,13 +500,13 @@ class Order:
                 raise ValueError
 
             else:
-                self.terrs.add(s)
+                self.building.terrs.add(s)
 
-                if self.kind not in {"SUPH", "SUPM", "CONV"}:
+                if self.building.kind not in {"SUPH", "SUPM", "CONV"}:
                     self.terr_complete = True
         else:
             try:
-                self.terrs.remove(s)
+                self.building.terrs.remove(s)
             except KeyError:
                 raise ValueError
 
@@ -506,21 +518,21 @@ class Order:
             raise ValueError
 
         else:
-            setattr(self, which, s)
+            setattr(self.building, which, s)
 
     def register_viac(self, s):
         if s in {"YES", "Y"}:
-            self.via_c = True
+            self.building.via_c = True
         elif s in {"NO", "N"}:
-            self.via_c = False
+            self.building.via_c = False
         else:
             raise ValueError
 
     def register_coast(self, s):
         if s in {"NC", "(NC)", "NORTH", "NORTH COAST"}:
-            self.coast = "NC"
+            self.building.coast = "NC"
         elif s in {"SC", "(SC)", "SOUTH", "SOUTH COAST"}:
-            self.coast = "SC"
+            self.building.coast = "SC"
         else:
             raise ValueError
 
@@ -537,12 +549,12 @@ class Order:
 
     def back(self):
         for attr in self.back_attrs:
-            if attr != "terrs" and getattr(self, attr) is not None:
-                setattr(self, attr, None)
+            if attr != "terrs" and getattr(self.building, attr) is not None:
+                setattr(self.building, attr, None)
                 return
 
             if self.terr_complete:
-                self.terrs = set()
+                self.building.terrs = set()
                 self.terr_complete = False
                 return
 
@@ -608,11 +620,11 @@ class Order:
 
 
 class Player:
-    def __init__(self, player_id):
+    def __init__(self, player_id, board):
         self.id = player_id
         self.nation = None
         self.orders = []
-        self.building = None
+        self.builder = OrderBuilder(board, self.orders)
         self.ready = False
 
     def get_handle(self, bot, chat_id):
@@ -631,7 +643,7 @@ class Game:
         self.autumn = False
 
     def add_player(self, player_id, bot=None):
-        player = Player(player_id)
+        player = Player(player_id, self.board)
         self.players[player_id] = player
 
         if bot:
@@ -719,7 +731,7 @@ def player_not_ready_guard(update, player):
 
 
 def player_not_building_order_guard(update, player):
-    if player.building is not None:
+    if player.builder:
         update.message.reply_text("You have an order to complete first", quote=False)
         raise HandlerGuard
 
@@ -1049,28 +1061,27 @@ def new_cmd(bot, update):
     except HandlerGuard:
         return
 
-    player.building = Order(game.board)
+    player.builder.new()
 
     show_order_menu(bot, game, player)
 
 
 def show_order_menu(bot, game, player, ntf=None):
     if not ntf:
-        ntf = player.building.next_to_fill()
+        ntf = player.builder.next_to_fill()
 
     bot.send_message(player.id, "DEBUG: awaiting order data " + ntf) # TODO: send a keyboard
 
 
 def order_msg_handler(bot, update, game, player):
     try:
-        ntf = player.building.push(update.message.text)
+        ntf = player.builder.push(update.message.text)
     except (ValueError, IndexError):
         update.message.reply_text("Invalid input")
         return
 
     if ntf == "DONE":
-        player.orders.append(player.building)
-        player.building = None
+        player.orders.append(player.builder.pop())
         show_command_menu(bot, game, player)
 
     else:
@@ -1162,7 +1173,7 @@ def generic_private_msg_handler(bot, update):
 
     if (game.status == "STARTED"
         and not player.ready
-        and player.building is not None):
+        and player.builder):
 
         order_msg_handler(bot, update, game, player)
 
