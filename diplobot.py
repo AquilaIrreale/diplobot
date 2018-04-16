@@ -396,10 +396,17 @@ class Order:
         return "Invalid order"
 
 
+class BuilderError(Exception):
+    def __init__(self, message):
+        super().__init__(self)
+        self.message = message
+
+
 class OrderBuilder:
-    def __init__(self, board, orders):
+    def __init__(self, board, orders, nation=None):
         self.board = board
         self.orders = orders
+        self.nation = nation
         self.building = None
         self.terr_complete = False
         self.terr_delete = False
@@ -500,33 +507,32 @@ class OrderBuilder:
             self.terr_delete = False
             return
 
-        if not self.terr_delete:
-            try:
-                s = terr_names.match_case(s)
-
-            except KeyError:
-                raise ValueError
-
-            else:
-                self.building.terrs.add(s)
-
-                if self.building.kind not in {"SUPH", "SUPM", "CONV"}:
-                    self.terr_complete = True
-        else:
+        if self.terr_delete:
             try:
                 self.building.terrs.remove(s)
             except KeyError:
                 raise ValueError
+        else:
+            try:
+                t = terr_names.match_case(s)
+
+            except KeyError:
+                raise ValueError
+
+            self.validate_terr(t)
+
+            self.building.terrs.add(t)
+
+            if self.building.kind not in {"SUPH", "SUPM", "CONV"}:
+                self.terr_complete = True
 
     def register_terr(self, which, s):
         try:
-            s = terr_names.match_case(s)
-
+            t = terr_names.match_case(s)
         except KeyError:
             raise ValueError
 
-        else:
-            setattr(self.building, which, s)
+        setattr(self.building, which, t)
 
     def register_viac(self, s):
         if s in {"YES", "Y"}:
@@ -585,6 +591,17 @@ class OrderBuilder:
 
         return self.next_to_fill()
 
+    def validate_terr(self, t):
+        if not self.board[t].occupied:
+            raise BuilderError("There's no unit in " + t)
+
+        if self.board[t].occupied != self.nation:
+            raise BuilderError("You can't order someone else's unit")
+
+        for o in self.orders:
+            if t in o.terrs:
+                raise BuilderError("There's already another order for {} ({})".format(t, o))
+
 
 
     # TODO: maybe look into coroutines?
@@ -634,6 +651,14 @@ class Player:
         self.orders = []
         self.builder = OrderBuilder(board, self.orders)
         self.ready = False
+
+    def reset(self):
+        del self.orders[:]
+        self.ready = False
+
+    def set_nation(self, nation):
+        self.nation = nation
+        self.builder.nation = nation
 
     def get_handle(self, bot, chat_id):
         return "@" + bot.getChatMember(chat_id, self.id).user.username
@@ -957,7 +982,7 @@ def nations_menu_cbh(bot, update):
         return
 
     player = game.players[player_id]
-    player.nation = update.callback_query.data[7:]
+    player.set_nation(update.callback_query.data[7:])
 
     handle = player.get_handle(bot, game.chat_id)
 
@@ -982,7 +1007,7 @@ def nations_menu_finalize(bot, game):
 
     for p in game.players.values():
         if p.nation == "RANDOM":
-            p.nation = available.pop()
+            p.set_nation(available.pop())
 
     show_year_menu(bot, game)
 
@@ -1040,8 +1065,7 @@ def game_start(bot, game):
 
 def turn_start(bot, game):
     for p in game.players.values():
-        p.orders = []
-        p.ready = False
+        p.reset()
         bot.send_message(p.id, "Awaiting orders for {}".format(game.date()))
         show_command_menu(bot, game, p)
 
@@ -1091,16 +1115,24 @@ def show_order_menu(bot, game, player, ntf=None):
 def order_msg_handler(bot, update, game, player):
     try:
         ntf = player.builder.push(update.message.text)
-    except (ValueError, IndexError):
-        update.message.reply_text("Invalid input")
-        return
 
-    if ntf == "DONE":
-        player.orders.append(player.builder.pop())
+    except ValueError:
+        update.message.reply_text("Invalid input")
+
+    except IndexError:
+        player.builder.pop()
         show_command_menu(bot, game, player)
 
+    except BuilderError as e:
+        update.message.reply_text(e.message)
+
     else:
-        show_order_menu(bot, game, player, ntf)
+        if ntf == "DONE":
+            player.orders.append(player.builder.pop())
+            show_command_menu(bot, game, player)
+
+        else:
+            show_order_menu(bot, game, player, ntf)
 
 
 #def order_msg_handler(bot, update, game):
