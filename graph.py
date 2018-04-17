@@ -5,48 +5,50 @@ class Graph:
         if graph_dict is None:
             graph_dict = {}
 
-        self.__graph_dict = graph_dict
+        self._graph_dict = graph_dict
 
     @property
     def dict(self):
-        return self.__graph_dict
+        return self._graph_dict
 
     def vertices(self):
-        return list(self.__graph_dict.keys())
+        return set(self._graph_dict.keys())
 
     def edges(self):
-        return self.__generate_edges()
+        edges = {}
 
-    def add_vertex(self, vertex):
-        if vertex not in self.__graph_dict:
-            self.__graph_dict[vertex] = []
+        for v in self._graph_dict:
+            for neigh in self._graph_dict[v]:
+                if {neigh, v} not in edges:
+                    edges.add({v, neigh})
+
+        return edges
+
+    def add_vertex(self, v):
+        if v not in self._graph_dict:
+            self._graph_dict[v] = set()
 
     def add_edge(self, edge):
         edge = set(edge)
-        (vertex1, vertex2) = tuple(edge)
+        (v1, v2) = tuple(edge)
 
-        if vertex1 in self.__graph_dict:
-            self.__graph_dict[vertex1].append[vertex2]
+        if v1 in self._graph_dict:
+            self._graph_dict[v1].add[v2]
+
         else:
-            self.__graph_dict[vertex1] = [vertex2]
+            self._graph_dict[v1] = {v2}
 
-    def __generate_edges(self):
-        edges = []
-        for vertex in self.__graph_dict:
-            for neighbour in self.__graph_dict[vertex]:
-                if {neighbour, vertex} not in edges:
-                    edges.append({vertex, neighbour})
-        return edges
+
 
     def __str__(self):
         res = "Vertices: "
 
-        for k in self.__graph_dict:
-            res +=str(k)+ " "
+        for k in self._graph_dict:
+            res += str(k) + " "
 
         res += "\nEdges: "
 
-        for edge in self.__generate_edges():
+        for edge in self.edges():
             res += str(edge) + " "
 
         return res
