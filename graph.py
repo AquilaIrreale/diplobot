@@ -38,7 +38,13 @@ class Graph:
         else:
             self._graph_dict[v1] = {v2}
 
+    def neighbors(self, vs):
+        ret = set()
 
+        for v in vs:
+            ret |= self._graph_dict[v]
+
+        return ret - set(vs)
 
     def __str__(self):
         res = "Vertices: "
