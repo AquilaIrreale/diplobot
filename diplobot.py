@@ -382,6 +382,9 @@ class Order:
 
         return "Invalid order"
 
+    def __lt__(self, other):
+        return str(self) < str(other)
+
 
 class BuilderError(Exception):
     def __init__(self, message):
@@ -607,18 +610,27 @@ class OrderBuilder:
 class Player:
     def __init__(self, player_id, board):
         self.id = player_id
-        self.nation = None
-        self.orders = set()
-        self.builder = OrderBuilder(board, self.orders)
+        self._nation = None
+        self._orders = set()
+        self.builder = OrderBuilder(board, self._orders)
         self.ready = False
+        self.deleting = False
+
+    def set_nation(self, nation):
+        self._nation = nation
+        self.builder.nation = nation
+
+    def set_orders(self, orders):
+        self._orders = orders
+        self.builder.orders = orders
+
+    nation = property(lambda self: self._nation, set_nation)
+    orders = property(lambda self: self._orders, set_orders)
 
     def reset(self):
         self.orders.clear()
         self.ready = False
-
-    def set_nation(self, nation):
-        self.nation = nation
-        self.builder.nation = nation
+        self.deleting = False
 
     def get_handle(self, bot, chat_id):
         return "@" + bot.getChatMember(chat_id, self.id).user.username
@@ -942,7 +954,7 @@ def nations_menu_cbh(bot, update):
         return
 
     player = game.players[player_id]
-    player.set_nation(update.callback_query.data[7:])
+    player.nation = update.callback_query.data[7:]
 
     handle = player.get_handle(bot, game.chat_id)
 
@@ -967,7 +979,7 @@ def nations_menu_finalize(bot, game):
 
     for p in game.players.values():
         if p.nation == "RANDOM":
-            p.set_nation(available.pop())
+            p.nation = available.pop()
 
     show_year_menu(bot, game)
 
@@ -1032,7 +1044,7 @@ def turn_start(bot, game):
 
 def show_command_menu(bot, game, player):
     message = ""
-    for order, index in zip(player.orders, count(1)):
+    for index, order in enumerate(sorted(player.orders), 1):
         message += "{}. {}\n".format(index, str(order)) # TODO: use long formatting
 
     if message:
