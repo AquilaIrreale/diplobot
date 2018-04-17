@@ -4,7 +4,7 @@ import re
 import random
 import logging
 from copy import copy
-from itertools import chain
+from itertools import count, chain
 
 from telegram import TelegramError, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
@@ -1032,8 +1032,7 @@ def turn_start(bot, game):
 
 def show_command_menu(bot, game, player):
     message = ""
-    orders_range = range(1, len(player.orders)+1)
-    for order, index in zip(player.orders, orders_range):
+    for order, index in zip(player.orders, count(1)):
         message += "{}. {}\n".format(index, str(order)) # TODO: use long formatting
 
     if message:
