@@ -748,6 +748,12 @@ def player_not_building_order_guard(update, player):
         raise HandlerGuard
 
 
+def player_not_deleting_orders_guard(update, player):
+    if player.deleting:
+        update.message.reply_text("You have to tell me what orders to delete first (back to abort)", quote=False)
+        raise HandlerGuard
+
+
 ## Handlers
 ###########
 
@@ -1067,6 +1073,7 @@ def new_cmd(bot, update):
         player = game.players[update.message.chat.id]
         player_not_ready_guard(update, player)
         player_not_building_order_guard(update, player)
+        player_not_deleting_orders_guard(update, player)
 
     except HandlerGuard:
         return
@@ -1107,7 +1114,74 @@ def order_msg_handler(bot, update, game, player):
 
 
 def delete_cmd(bot, update):
-    pass
+    try:
+        private_chat_guard(update)
+
+        game = player_in_game_guard(update)
+        game_status_guard(update, game, "STARTED")
+
+        player = game.players[update.message.chat.id]
+        player_not_ready_guard(update, player)
+        player_not_building_order_guard(update, player)
+        player_not_deleting_orders_guard(update, player)
+
+    except HandlerGuard:
+        return
+
+    update.message.reply_text("Which orders do you want to delete? (back to abort)")
+
+    player.deleting = True
+
+
+parse_delete_num_re = re.compile("^(\d+)$")
+parse_delete_range_re = re.compile("^(\d+)\s*-\s*(\d+)$")
+
+def parse_delete_msg(s, n):
+    ss = s.split(',')
+
+    for s in map(str.strip, ss):
+        match1 = parse_delete_num_re.match(s)
+        match2 = parse_delete_range_re.match(s)
+
+        if match1:
+            a = int(match1.group(1))
+            b = a
+
+        elif match2:
+            a = int(match2.group(1))
+            b = int(match2.group(2))
+
+        else:
+            raise ValueError
+
+        if a < 1 or b < a or b > n:
+            raise ValueError
+
+        yield range(a-1, b)
+
+
+def delete_msg_handler(bot, update, game, player):
+    if update.message.text.strip().upper() == "BACK":
+        player.deleting = False
+        show_command_menu(bot, game, player)
+        return
+
+    try:
+        ranges = set(parse_delete_msg(update.message.text, len(player.orders)))
+    except ValueError:
+        update.message.reply_text("Invalid input")
+        return
+
+    orders = sorted(player.orders)
+
+    for r in ranges:
+        for i in r:
+            orders[i] = None
+
+    player.orders = set(filter(None, orders))
+    player.deleting = False
+
+    show_command_menu(bot, game, player)
 
 
 def ready_cmd(bot, update):
@@ -1120,6 +1194,7 @@ def ready_cmd(bot, update):
         player = game.players[update.message.chat.id]
         player_not_ready_guard(update, player)
         player_not_building_order_guard(update, player)
+        player_not_deleting_orders_guard(update, player)
 
     except HandlerGuard:
         return
@@ -1180,11 +1255,12 @@ def generic_private_msg_handler(bot, update):
 
     player = game.players[player_id]
 
-    if (game.status == "STARTED"
-        and not player.ready
-        and player.builder):
+    if game.status == "STARTED":
+        if not player.ready and player.builder:
+            order_msg_handler(bot, update, game, player)
 
-        order_msg_handler(bot, update, game, player)
+        elif not player.ready and player.deleting:
+            delete_msg_handler(bot, update, game, player)
 
 
 def error_handler(bot, update, error):
