@@ -33,7 +33,7 @@ class Graph:
         (v1, v2) = tuple(edge)
 
         if v1 in self._graph_dict:
-            self._graph_dict[v1].add[v2]
+            self._graph_dict[v1].add(v2)
 
         else:
             self._graph_dict[v1] = {v2}
