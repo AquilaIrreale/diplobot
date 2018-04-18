@@ -309,7 +309,7 @@ class Order:
         self.via_c = None
 
     def __str__(self):
-        coast = "({})".format(self.coast) if self.coast else ""
+        coast = "{}".format(self.coast) if self.coast else ""
         via_c = " C" if self.via_c else ""
 
         if self.kind == "HOLD":
