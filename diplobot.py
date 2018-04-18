@@ -893,10 +893,16 @@ def show_nations_menu(bot, game):
 
 
 def nations_menu_cbh(bot, update):
+    error = False
+
     try:
         game = games[update.callback_query.message.chat.id]
     except KeyError:
-        update.callback_query.answer("Something went wrong")
+        error = True
+
+    if error or game.status != "CHOOSING_NATIONS":
+        update.callback_query.answer("This control is no longer valid")
+        update.callback_query.message.edit_reply_markup()
         return
 
     player_id = update.callback_query.from_user.id
