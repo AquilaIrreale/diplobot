@@ -513,13 +513,25 @@ class OrderBuilder:
             if self.building.kind not in {"SUPH", "SUPM", "CONV"}:
                 self.terr_complete = True
 
-    def register_terr(self, which, s):
+    def register_orig(self, s):
         try:
             t = terr_names.match_case(s)
         except KeyError:
             raise ValueError
 
-        setattr(self.building, which, t)
+        self.validate_orig(t)
+
+        self.building.orig = t
+
+    def register_targ(self, s):
+        try:
+            t = terr_names.match_case(s)
+        except KeyError:
+            raise ValueError
+
+        self.validate_targ(t)
+
+        self.building.targ = t
 
     def register_viac(self, s):
         if s in {"YES", "Y"}:
@@ -540,8 +552,8 @@ class OrderBuilder:
     actions = {
         "KIND":  lambda self, s: self.register_kind(s),
         "TERR":  lambda self, s: self.register_terr_list(s),
-        "ORIG":  lambda self, s: self.register_terr("orig", s),
-        "TARG":  lambda self, s: self.register_terr("targ", s),
+        "ORIG":  lambda self, s: self.register_orig(s),
+        "TARG":  lambda self, s: self.register_targ(s),
         "VIAC":  lambda self, s: self.register_viac(s),
         "COAST": lambda self, s: self.register_coast(s)
     }
@@ -589,6 +601,16 @@ class OrderBuilder:
         for o in self.orders:
             if o.terr == t:
                 raise BuilderError("There's already another order for {} ({})".format(t, o))
+
+    def validate_orig(self, t):
+        if t in self.terrs:
+            raise BuilderError("{} is already part of the order".format(t))
+
+    def validate_targ(self, t):
+        t2 = self.terr if self.building.kind == "MOVE" else self.building.orig
+
+        if t == t2:
+            raise BuilderError("Can't move onto itself")
 
 
 class Player:
