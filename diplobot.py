@@ -567,11 +567,12 @@ class OrderBuilder:
 
     def back(self):
         for attr in self.back_attrs:
-            if attr != "terrs" and getattr(self.building, attr) is not None:
-                setattr(self.building, attr, None)
-                return
+            if attr != "terrs":
+                if getattr(self.building, attr) is not None:
+                    setattr(self.building, attr, None)
+                    return
 
-            if self.terr_complete:
+            elif self.terr_complete:
                 self.terrs = set()
                 self.terr_complete = False
                 return
