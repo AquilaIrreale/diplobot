@@ -160,109 +160,38 @@ def strip_coast(t):
     return t[:3]
 
 
-terr_names = InsensitiveList(
-    sorted({strip_coast(t) for t in chain(land_graph.vertices(), sea_graph.vertices())}))
+territories = {strip_coast(t)
+    for t in chain(land_graph.vertices(), sea_graph.vertices())}
 
+terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}))
 
-terr_names = InsensitiveList((
-    "Alb", "Ank", "Apu", "Arm", "Bel", "Ber", "Boh", "Bre",
-    "Bud", "Bul", "Bur", "Cly", "Con", "Den", "Edi", "Fin",
-    "Gal", "Gas", "Gre", "Hol", "Kie", "Lon", "Lvn", "Lvp",
-    "Mar", "Mos", "Mun", "NAf", "Nap", "Nwy", "Par", "Pic",
-    "Pie", "Por", "Pru", "Rom", "Ruh", "Rum", "Ser", "Sev",
-    "Sil", "Smy", "Spa", "StP", "Swe", "Syr", "Tri", "Tun",
-    "Tus", "Tyr", "Ukr", "Ven", "Vie", "Wal", "War", "Yor",
-    "AEG", "ADR", "BAL", "BAR", "BLA", "BOT", "EAS", "ENG",
-    "HEL", "ION", "IRI", "LYO", "MAO", "NAO", "NTH", "NWG",
-    "SKA", "TYS", "WES"
-))
-
-
-class TerrInfo:
-    def __init__(self, prod_center=False, is_split=False):
-        self.is_split = is_split
-        self.prod_center = prod_center
-
-
-terrinfo = {
-    "Alb": TerrInfo(prod_center=False, is_split=False),
-    "Ank": TerrInfo(prod_center=True,  is_split=False),
-    "Apu": TerrInfo(prod_center=False, is_split=False),
-    "Arm": TerrInfo(prod_center=False, is_split=False),
-    "Bel": TerrInfo(prod_center=True,  is_split=False),
-    "Ber": TerrInfo(prod_center=True,  is_split=False),
-    "Boh": TerrInfo(prod_center=False, is_split=False),
-    "Bre": TerrInfo(prod_center=True,  is_split=False),
-    "Bud": TerrInfo(prod_center=True,  is_split=False),
-    "Bul": TerrInfo(prod_center=True,  is_split=True),
-    "Bur": TerrInfo(prod_center=False, is_split=False),
-    "Cly": TerrInfo(prod_center=False, is_split=False),
-    "Con": TerrInfo(prod_center=True,  is_split=False),
-    "Den": TerrInfo(prod_center=True,  is_split=False),
-    "Edi": TerrInfo(prod_center=True,  is_split=False),
-    "Fin": TerrInfo(prod_center=False, is_split=False),
-    "Gal": TerrInfo(prod_center=False, is_split=False),
-    "Gas": TerrInfo(prod_center=False, is_split=False),
-    "Gre": TerrInfo(prod_center=True,  is_split=False),
-    "Hol": TerrInfo(prod_center=True,  is_split=False),
-    "Kie": TerrInfo(prod_center=True,  is_split=False),
-    "Lon": TerrInfo(prod_center=True,  is_split=False),
-    "Lvn": TerrInfo(prod_center=False, is_split=False),
-    "Lvp": TerrInfo(prod_center=True,  is_split=False),
-    "Mar": TerrInfo(prod_center=True,  is_split=False),
-    "Mos": TerrInfo(prod_center=True,  is_split=False),
-    "Mun": TerrInfo(prod_center=True,  is_split=False),
-    "NAf": TerrInfo(prod_center=False, is_split=False),
-    "Nap": TerrInfo(prod_center=True,  is_split=False),
-    "Nwy": TerrInfo(prod_center=True,  is_split=False),
-    "Par": TerrInfo(prod_center=True,  is_split=False),
-    "Pic": TerrInfo(prod_center=False, is_split=False),
-    "Pie": TerrInfo(prod_center=False, is_split=False),
-    "Por": TerrInfo(prod_center=True,  is_split=False),
-    "Pru": TerrInfo(prod_center=False, is_split=False),
-    "Rom": TerrInfo(prod_center=True,  is_split=False),
-    "Ruh": TerrInfo(prod_center=False, is_split=False),
-    "Rum": TerrInfo(prod_center=True,  is_split=False),
-    "Ser": TerrInfo(prod_center=True,  is_split=False),
-    "Sev": TerrInfo(prod_center=True,  is_split=False),
-    "Sil": TerrInfo(prod_center=False, is_split=False),
-    "Smy": TerrInfo(prod_center=True,  is_split=False),
-    "Spa": TerrInfo(prod_center=True,  is_split=True),
-    "StP": TerrInfo(prod_center=True,  is_split=True),
-    "Swe": TerrInfo(prod_center=True,  is_split=False),
-    "Syr": TerrInfo(prod_center=False, is_split=False),
-    "Tri": TerrInfo(prod_center=True,  is_split=False),
-    "Tun": TerrInfo(prod_center=True,  is_split=False),
-    "Tus": TerrInfo(prod_center=False, is_split=False),
-    "Tyr": TerrInfo(prod_center=False, is_split=False),
-    "Ukr": TerrInfo(prod_center=False, is_split=False),
-    "Ven": TerrInfo(prod_center=True,  is_split=False),
-    "Vie": TerrInfo(prod_center=True,  is_split=False),
-    "Wal": TerrInfo(prod_center=False, is_split=False),
-    "War": TerrInfo(prod_center=True,  is_split=False),
-    "Yor": TerrInfo(prod_center=False, is_split=False),
-    "AEG": TerrInfo(prod_center=False, is_split=False),
-    "ADR": TerrInfo(prod_center=False, is_split=False),
-    "BAL": TerrInfo(prod_center=False, is_split=False),
-    "BAR": TerrInfo(prod_center=False, is_split=False),
-    "BLA": TerrInfo(prod_center=False, is_split=False),
-    "BOT": TerrInfo(prod_center=False, is_split=False),
-    "EAS": TerrInfo(prod_center=False, is_split=False),
-    "ENG": TerrInfo(prod_center=False, is_split=False),
-    "HEL": TerrInfo(prod_center=False, is_split=False),
-    "ION": TerrInfo(prod_center=False, is_split=False),
-    "IRI": TerrInfo(prod_center=False, is_split=False),
-    "LYO": TerrInfo(prod_center=False, is_split=False),
-    "MAO": TerrInfo(prod_center=False, is_split=False),
-    "NAO": TerrInfo(prod_center=False, is_split=False),
-    "NTH": TerrInfo(prod_center=False, is_split=False),
-    "NWG": TerrInfo(prod_center=False, is_split=False),
-    "SKA": TerrInfo(prod_center=False, is_split=False),
-    "TYS": TerrInfo(prod_center=False, is_split=False),
-    "WES": TerrInfo(prod_center=False, is_split=False)
+offshore = {
+    "AEG", "ADR", "BAL", "BAR", "BLA",
+    "BOT", "EAS", "ENG", "HEL", "ION",
+    "IRI", "LYO", "MAO", "NAO", "NTH",
+    "NWG", "SKA", "TYS", "WES"
 }
 
-prod_centers = {t for t in terrinfo if terrinfo[t].prod_center}
+coast = sea_graph.vertices() - offshore
+
+bla_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
+bal_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
+main_coast = {strip_coast(t)
+    for t in sea_graph.neighbors(offshore - {"BLA", "BAL", "BOT"})}
+
+coasts = (bla_coast, bal_coast, main_coast)
+
+split_coasts = {"Bul", "Spa", "StP"}
+
+prod_centers = {
+    "Ank", "Bel", "Ber", "Bre", "Bud",
+    "Bul", "Con", "Den", "Edi", "Gre",
+    "Hol", "Kie", "Lon", "Lvp", "Mar",
+    "Mos", "Mun", "Nap", "Nwy", "Par",
+    "Por", "Rom", "Rum", "Ser", "Sev",
+    "Smy", "Spa", "StP", "Swe", "Tri",
+    "Tun", "Ven", "Vie", "War"
+}
 
 
 class Territory:
@@ -317,7 +246,7 @@ def make_board():
         "Sil": Territory(),
         "Smy": Territory(owner="TURKEY",  occupied="TURKEY",  kind="A"),
         "Spa": Territory(),
-        "StP": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="F",  coast="SC"),
+        "StP": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="F",  coast="(SC)"),
         "Swe": Territory(),
         "Syr": Territory(),
         "Tri": Territory(owner="AUSTRIA", occupied="AUSTRIA", kind="F"),
@@ -547,10 +476,10 @@ class OrderBuilder:
             raise ValueError
 
     def register_coast(self, s):
-        if s in {"NC", "(NC)", "NORTH", "NORTH COAST"}:
-            self.building.coast = "NC"
-        elif s in {"SC", "(SC)", "SOUTH", "SOUTH COAST"}:
-            self.building.coast = "SC"
+        if s in {"N", "NC", "(NC)", "NORTH", "NORTH COAST"}:
+            self.building.coast = "(NC)"
+        elif s in {"S", "SC", "(SC)", "SOUTH", "SOUTH COAST"}:
+            self.building.coast = "(SC)"
         else:
             raise ValueError
 
