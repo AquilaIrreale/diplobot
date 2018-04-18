@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
 
+
+  ########################################################################
+  # graph.py - a simple graph based on adjacency-lists                   #
+  #                                                                      #
+  # Copyright (C) 2018 Simone Cimarelli a.k.a. AquilaIrreale             #
+  #                                                                      #
+  # To the extent possible under law, the author(s) have dedicated all   #
+  # copyright and related and neighboring rights to this software to the #
+  # public domain worldwide. This software is distributed without any    #
+  # warranty. <http://creativecommons.org/publicdomain/zero/1.0/>        #
+  ########################################################################
+
+
 class Graph:
     def __init__(self, graph_dict=None):
         if graph_dict is None:
