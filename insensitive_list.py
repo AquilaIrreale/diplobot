@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
   ########################################################################
   # insensitive_list.py - a simple case-insensitive list                 #
   #                                                                      #
@@ -11,7 +10,6 @@
   # public domain worldwide. This software is distributed without any    #
   # warranty. <http://creativecommons.org/publicdomain/zero/1.0/>        #
   ########################################################################
-
 
 class InsensitiveList(list):
     def __init__(self, iterable):
