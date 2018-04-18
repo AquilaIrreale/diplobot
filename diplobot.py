@@ -375,6 +375,45 @@ class OrderBuilder:
         except StopIteration:
             return None
 
+    def needs_via_c(self):
+        t1 = self.terr
+        t2 = self.building.targ
+
+        if self.board[t1].kind == "F":
+            return False
+
+        if t2 not in land_graph.neighbors((t1,)):
+            return False
+
+        for c in coasts:
+            if t1 in c and t2 in c:
+                return True
+
+        return False
+
+    def auto_coast(self):
+        if (self.board[self.terr].kind != 'F'
+            or self.building.targ not in split_coasts):
+
+            return True
+
+        i = 0
+
+        for c in ("(NC)", "(SC)"):
+            try:
+                if self.terr in sea_graph.neighbors((self.building.targ + c,)):
+                    self.coast = c
+                    i += 1
+
+            except KeyError:
+                pass
+
+        if i != 1:
+            self.coast = None
+            return False
+
+        return True
+
     def next_to_fill(self):
         if self.building.kind is None:
             return "KIND"
@@ -392,12 +431,9 @@ class OrderBuilder:
             return "TARG"
 
         if self.building.kind == "MOVE":
-            fleet = self.board[self.terr].kind == "F"
-            split = terrinfo[self.building.targ].is_split
-
-            if not fleet and self.building.via_c is None:
+            if self.building.via_c is None and self.needs_via_c():
                 return "VIAC"
-            elif fleet and self.building.coast is None and split:
+            elif self.building.coast is None and not self.auto_coast():
                 return "COAST"
 
         return "DONE"
