@@ -898,7 +898,7 @@ def nations_menu_cbh(bot, update):
         update.callback_query.message.edit_reply_markup()
         update.callback_query.message.edit_text(
             "{} will play as {}".format(handle, player.nation))
-    except BadRequest:
+    except TelegramError:
         pass
 
     show_nations_menu(bot, game)
