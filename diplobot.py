@@ -1244,7 +1244,7 @@ def show_year_menu(bot, game):
     game.status = "CHOOSING_YEAR"
 
 
-year_re = re.compile("^(\d*)\s*(AD|BC|CE|BCE)?$", re.IGNORECASE)
+year_re = re.compile(r"^(\d*)\s*(AD|BC|CE|BCE)?$", re.IGNORECASE)
 
 def year_msg_handler(bot, update, game):
     text = update.message.text.strip()
@@ -1408,8 +1408,8 @@ def delete_cmd(bot, update):
     player.deleting = True
 
 
-parse_delete_num_re = re.compile("^(\d+)$")
-parse_delete_range_re = re.compile("^(\d+)\s*-\s*(\d+)$")
+parse_delete_num_re = re.compile(r"^(\d+)$")
+parse_delete_range_re = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 
 def parse_delete_msg(s, n):
     ss = s.split(',')
