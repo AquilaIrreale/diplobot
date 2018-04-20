@@ -24,8 +24,19 @@ import logging
 from copy import copy
 from itertools import count, chain
 
-from telegram import TelegramError, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
+from telegram import (TelegramError,
+                      InlineKeyboardButton,
+                      InlineKeyboardMarkup,
+                      ParseMode,
+                      ReplyKeyboardMarkup,
+                      ReplyKeyboardRemove)
+
+from telegram.ext import (Updater,
+                          CommandHandler,
+                          MessageHandler,
+                          CallbackQueryHandler,
+                          Filters)
+
 from telegram.error import BadRequest
 
 from insensitive_list import InsensitiveList
@@ -297,6 +308,59 @@ def make_board():
         "TYS": Territory(),
         "WES": Territory()
     }
+
+
+def reachables(t, board):
+    if not board[t].occupied:
+        return set()
+
+    if board[t].kind == "F":
+        g = sea_graph
+
+        if t in split_coasts:
+            t += board[t].coast
+
+    else:
+        g = land_graph
+
+    return {strip_coast(x) for x in g.neighbors({t})}
+
+
+def reachables_via_c(t, board):
+    if t not in coast or not board[t].occupied or board[t].kind != "A":
+        return set()
+
+    checked = set()
+    to_check = sea_graph.neighbors({t}) & offshore
+    ret = set()
+
+    while to_check:
+        t1 = next(iter(to_check))
+        to_check.discard(t1)
+        checked.add(t1)
+
+        if not board[t1].occupied:
+            continue
+
+        for t2 in sea_graph.neighbors({t1}):
+            t2 = strip_coast(t2)
+
+            if t2 in coast:
+                ret.add(t2)
+
+            elif t2 not in checked:
+                to_check.add(t2)
+
+    ret.discard(t)
+
+    return ret
+
+
+def occupied(board, nation=None):
+    if nation:
+        return {t for t in territories if board[t].occupied == nation}
+    else:
+        return {t for t in territories if board[t].occupied}
 
 
 class Order:
@@ -630,6 +694,156 @@ class OrderBuilder:
 
         if t == t2:
             raise BuilderError("Can't move onto itself")
+
+    def ordered(self):
+        return {o.terr for o in self.orders}
+
+    def unordered(self):
+        return occupied(self.board, self.nation) - self.ordered()
+
+    def get_terrs_hint(self):
+        available = self.unordered() - self.terrs
+
+        if self.building.kind == "CONV":
+            return available & offshore
+        else:
+            return available
+
+    def get_origs_hint(self):
+        if self.building.kind == "SUPM":
+            r = territories
+            ret = set()
+
+            for t in self.terrs:
+                r = r & reachables(t, self.board)
+
+            for t in occupied(self.board) - self.terrs:
+                if r & (reachables(t, self.board)
+                    | reachables_via_c(t, self.board)):
+
+                    ret.add(t)
+
+            return ret
+
+        elif self.building.kind == "CONV":
+            ret = set()
+            to_check = set(self.terrs)
+            checked = set()
+
+            while to_check:
+                t1 = next(iter(to_check))
+                checked.add(t1)
+
+                for t2 in sea_graph.neighbors({t1}):
+                    if t2 in checked:
+                        continue
+
+                    if t2 in offshore:
+                        to_check.add(t2)
+
+                    if self.board[t2].occupied and self.board[t2].kind == "A":
+                        ret.add(t2)
+
+            return ret
+
+    def get_targs_hint(self):
+        if self.building.kind == "MOVE":
+            return (reachables(self.terr, self.board)
+                | reachables_via_c(self.building.orig, self.board))
+
+        if self.building.kind == "SUPH":
+            return reachables(self.terr, self.board)
+
+        elif self.building.kind == "SUPM":
+            ret = territories
+
+            for t in self.terrs:
+                ret = ret & reachables(t, self.board)
+
+            ret = ret & (reachables(self.building.orig, self.board)
+                | reachables_via_c(self.building.orig, self.board))
+
+            return ret
+
+        elif self.building.kind == "CONV":
+            return reachables_via_c(self.building.orig, self.board)
+
+
+    hints = {
+        "TERR": lambda self: self.get_terrs_hint(),
+        "ORIG": lambda self: self.get_origs_hint(),
+        "TARG": lambda self: self.get_targs_hint()
+    }
+
+    def get_kind_keyboard(self):
+        return ReplyKeyboardMarkup([
+            ["Hold"],
+            ["Move (attack)"],
+            ["Support to Hold"],
+            ["Support to Move"],
+            ["Convoy"],
+            ["Back"]
+        ])
+
+    def get_coasts_keyboard(self):
+        return ReplyKeyboardMarkup([
+            ["North", "South"],
+            ["Back"]
+        ])
+
+    def get_yesno_keyboard(self):
+        return ReplyKeyboardMarkup([
+            ["Yes", "No"],
+            ["Back"]
+        ])
+
+    basic_keyboards = {
+        "KIND":  lambda self: self.get_kind_keyboard(),
+        "COAST": lambda self: self.get_coasts_keyboard(),
+        "VIAC":  lambda self: self.get_yesno_keyboard()
+    }
+
+    def get_keyboard(self):
+        ntf = self.next_to_fill()
+
+        try:
+            return self.basic_keyboards[ntf](self)
+        except KeyError:
+            pass
+
+        try:
+            hint = self.hints[ntf](self)
+        except KeyError:
+            return None
+
+        if self.more:
+            hint = territories - hint
+
+        terrs = sorted(hint, key=str.upper)
+
+        r3 = len(terrs) % 3
+        r4 = len(terrs) % 4
+
+        if r4 == 0:
+            cols = 4
+        elif r3 == 0:
+            cols = 3
+        else:
+            cols = 3 if r3 > r4 else 4
+
+        keyboard = [terrs[i:i+cols] for i in range(0, len(terrs), cols)]
+
+        keyboard.append(["More..."])
+
+        if ntf == "TERR" and self.terrs:
+            if not self.terr_remove:
+                keyboard.append(["Remove"])
+            else:
+                keyboard.append(["Add"])
+
+        keyboard += [["Done"], ["Back"]]
+
+        return ReplyKeyboardMarkup(keyboard)
 
 
 class Player:
@@ -1112,16 +1326,43 @@ def new_cmd(bot, update):
     except HandlerGuard:
         return
 
+    if not player.builder.unordered():
+        update.message.reply_text("You have already sent orders to all of your units. "
+                                  "/delete the orders you want to change, or send /ready "
+                                  "when you are ready")
+        return
+
     player.builder.new()
 
     show_order_menu(bot, game, player)
 
 
+order_menu_prompts = {
+    "COAST": "North coast or south coast?",
+    "KIND":  "Order kind?",
+    "ORIG":  "From?",
+    "TARG":  "To?",
+    "VIAC":  "Put a \"via convoy\" specifier?"
+}
+
 def show_order_menu(bot, game, player, ntf=None):
     if not ntf:
         ntf = player.builder.next_to_fill()
 
-    bot.send_message(player.id, "DEBUG: awaiting order data " + ntf) # TODO: send a keyboard
+    if ntf == "TERR":
+        terrs = ", ".join(player.builder.terrs)
+
+        if not terrs:
+            prompt = "Who is this order for?"
+        elif not player.builder.terr_remove:
+            prompt = "{}.\nAny others?".format(terrs)
+        else:
+            prompt = "{}.\nWho do you want to remove?".format(terrs)
+    else:
+        prompt = order_menu_prompts[ntf]
+
+    bot.send_message(
+        player.id, prompt, reply_markup=player.builder.get_keyboard())
 
 
 def order_msg_handler(bot, update, game, player):
