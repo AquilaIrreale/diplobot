@@ -21,6 +21,8 @@
 import re
 import random
 import logging
+import subprocess
+
 from copy import copy
 from itertools import count, chain
 
@@ -846,6 +848,81 @@ class OrderBuilder:
         return ReplyKeyboardMarkup(keyboard)
 
 
+def format_board(board):
+    ret = "CLEAR ALL\n"
+
+    for name, t in board.items():
+        if t.occupied:
+            coast = t.coast or ""
+            ret += "{}{} {} {}\n".format(name, coast, t.kind, t.occupied)
+
+    return ret
+
+
+def format_orders(orders):
+    ret = ""
+
+    for o in orders:
+        if o.kind != "HOLD":
+            ret += str(o) + "\n"
+
+    return ret
+
+
+res_re = re.compile(r"^\d+: (SUCCEEDS|FAILS)$")
+
+def parse_res(s):
+    m = res_re.match(s)
+
+    if not m:
+        raise ValueError(s)
+
+    return m.group(1) == "SUCCEEDS"
+
+
+ret_re = re.compile(r"^(\w+):(( \w+)*)$")
+
+def parse_ret(s):
+    m = ret_re.match(s)
+
+    if not m:
+        raise ValueError(s)
+
+    t1 = terr_names.match_case(m.group(1))
+
+    g2 = m.group(2) or ""
+
+    t2s = {terr_names.match_case(t) for t in g2.split()}
+
+    return t1, t2s
+
+
+def adjudicate(board, orders):
+    payload = format_board(board) + "\n" + format_orders(orders) + "\n"
+
+    cp = subprocess.run(
+        ["cdippy"], input=payload, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, universal_newlines=True)
+
+    if cp.stderr:
+        raise ValueError(payload)
+
+    lines = iter(cp.stdout.splitlines())
+
+    resolutions = [None if o.kind == "HOLD" else parse_res(next(lines)) for o in orders]
+
+    if next(lines):
+        raise ValueError(payload)
+
+    retreats = {t1: t2s for t1, t2s in (parse_ret(s) for s in lines if s)}
+
+    for i in range(len(orders)):
+        if orders[i].kind == "HOLD":
+            resolutions[i] = orders[i].terr not in retreats
+
+    return resolutions, retreats
+
+
 class Player:
     def __init__(self, player_id, board):
         self.id = player_id
@@ -1503,11 +1580,7 @@ def unready_cmd(bot, update):
 
 def ready_check(bot, game):
     if all(p.ready for p in game.players.values()):
-        adjudicate(bot, game)
-
-
-def adjudicate(bot, game):
-    pass # TODO
+        adjudicate(bot, game) # TODO: continue here
 
 
 def generic_group_msg_handler(bot, update):
