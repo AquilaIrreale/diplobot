@@ -181,7 +181,7 @@ def strip_coast(t):
 territories = {strip_coast(t)
     for t in chain(land_graph.vertices(), sea_graph.vertices())}
 
-terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}))
+terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}, key=str.upper))
 
 offshore = {
     "AEG", "ADR", "BAL", "BAR", "BLA",
@@ -190,7 +190,7 @@ offshore = {
     "NWG", "SKA", "TYS", "WES"
 }
 
-coast = sea_graph.vertices() - offshore
+coast = set(map(strip_coast, sea_graph.vertices() - offshore))
 
 bla_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
 bal_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
@@ -330,7 +330,7 @@ class Order:
         return "Invalid order"
 
     def __lt__(self, other):
-        return str(self) < str(other)
+        return str(self).upper() < str(other).upper()
 
 
 class BuilderError(Exception):
@@ -347,7 +347,8 @@ class OrderBuilder:
         self.building = None
         self.terrs = set()
         self.terr_complete = False
-        self.terr_delete = False
+        self.terr_remove = False
+        self.more = False
 
     def __bool__(self):
         return self.building is not None
@@ -356,7 +357,8 @@ class OrderBuilder:
         self.building = Order()
         self.terrs = set()
         self.terr_complete = False
-        self.terr_delete = False
+        self.terr_remove = False
+        self.more = False
 
     def pop(self):
         ret = set()
@@ -478,27 +480,30 @@ class OrderBuilder:
     def register_terr_list(self, s):
         if s == "DONE":
             if not self.terrs:
-                raise ValueError
+                raise BuilderError("You must specify at least one territory")
 
             self.terr_complete = True
             return
 
-        if s == "DELETE":
+        if s == "REMOVE":
             if not self.terrs:
                 raise ValueError
 
-            self.terr_delete = True
+            self.terr_remove = True
             return
 
         if s == "ADD":
-            self.terr_delete = False
+            self.terr_remove = False
             return
 
-        if self.terr_delete:
+        if self.terr_remove:
             try:
                 self.terrs.remove(s)
             except KeyError:
                 raise ValueError
+
+            if not self.terrs:
+                self.terr_remove = False
         else:
             try:
                 t = terr_names.match_case(s)
@@ -565,15 +570,18 @@ class OrderBuilder:
             if attr != "terrs":
                 if getattr(self.building, attr) is not None:
                     setattr(self.building, attr, None)
-                    return
+                    break
 
             elif self.terr_complete:
                 self.terrs = set()
                 self.terr_complete = False
-                return
+                break
 
         else:
             raise IndexError
+
+        self.more = False
+        self.terr_remove = False
 
     def push(self, s):
         s = s.strip().upper()
@@ -582,6 +590,9 @@ class OrderBuilder:
 
         if s == "BACK":
             self.back()
+
+        elif s in {"MORE", "MORE..."}:
+            self.more = not self.more
 
         elif ntf == "DONE":
             raise IndexError
@@ -597,6 +608,14 @@ class OrderBuilder:
 
         if self.board[t].occupied != self.nation:
             raise BuilderError("You can't order someone else's unit")
+
+        if self.building.kind == "CONV":
+            if self.board[t].kind != "F":
+                raise BuilderError("Only fleets can convoy")
+
+            elif t not in offshore:
+                raise BuilderError("A fleet needs to be in open sea to convoy")
+
 
         for o in self.orders:
             if o.terr == t:
@@ -1075,7 +1094,7 @@ def show_command_menu(bot, game, player):
                 "/delete -- withdraw an order\n"
                 "/ready -- when you are done")
 
-    bot.send_message(player.id, message)
+    bot.send_message(player.id, message, reply_markup=ReplyKeyboardRemove())
 
 
 def new_cmd(bot, update):
