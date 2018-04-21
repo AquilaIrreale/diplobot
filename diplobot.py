@@ -549,6 +549,7 @@ class OrderBuilder:
                 raise BuilderError("You must specify at least one territory")
 
             self.terr_complete = True
+            self.more = False
             return
 
         if s == "REMOVE":
@@ -560,23 +561,23 @@ class OrderBuilder:
 
         if s == "ADD":
             self.terr_remove = False
+            self.more = False
             return
+
+        try:
+            t = terr_names.match_case(s)
+        except KeyError:
+            raise ValueError
 
         if self.terr_remove:
             try:
-                self.terrs.remove(s)
+                self.terrs.remove(t)
             except KeyError:
                 raise ValueError
 
             if not self.terrs:
                 self.terr_remove = False
         else:
-            try:
-                t = terr_names.match_case(s)
-
-            except KeyError:
-                raise ValueError
-
             self.validate_terr(t)
 
             self.terrs.add(t)
@@ -593,6 +594,7 @@ class OrderBuilder:
         self.validate_orig(t)
 
         self.building.orig = t
+        self.more = False
 
     def register_targ(self, s):
         try:
@@ -603,6 +605,7 @@ class OrderBuilder:
         self.validate_targ(t)
 
         self.building.targ = t
+        self.more = False
 
     def register_viac(self, s):
         if s in {"YES", "Y"}:
@@ -639,12 +642,14 @@ class OrderBuilder:
                     break
 
             elif self.terr_complete:
-                self.terrs = set()
-                self.terr_complete = False
                 break
 
         else:
             raise IndexError
+
+        if attr in ["terrs", "kind"]:
+            self.terrs = set()
+            self.terr_complete = False
 
         self.more = False
         self.terr_remove = False
@@ -704,6 +709,9 @@ class OrderBuilder:
         return occupied(self.board, self.nation) - self.ordered()
 
     def get_terrs_hint(self):
+        if self.terr_remove:
+            return self.terrs
+
         available = self.unordered() - self.terrs
 
         if self.building.kind == "CONV":
@@ -843,7 +851,9 @@ class OrderBuilder:
             else:
                 keyboard.append(["Add"])
 
-        keyboard += [["Done"], ["Back"]]
+            keyboard.append(["Done"])
+
+        keyboard.append(["Back"])
 
         return ReplyKeyboardMarkup(keyboard)
 
@@ -1361,7 +1371,7 @@ def game_start(bot, game):
 
     bot.send_message(game.chat_id, start_message, parse_mode="HTML")
 
-    game.status = 'STARTED'
+    game.status = 'ORDER_PHASE'
 
     turn_start(bot, game)
 
@@ -1381,9 +1391,9 @@ def show_command_menu(bot, game, player):
     if message:
         message += "\n"
 
-    message += ("/new -- submit a new order\n"
-                "/delete -- withdraw an order\n"
-                "/ready -- when you are done")
+    message += ("/new - submit a new order\n"
+                "/delete - withdraw an order\n"
+                "/ready - when you are done")
 
     bot.send_message(player.id, message, reply_markup=ReplyKeyboardRemove())
 
@@ -1393,7 +1403,7 @@ def new_cmd(bot, update):
         private_chat_guard(update)
 
         game = player_in_game_guard(update)
-        game_status_guard(update, game, "STARTED")
+        game_status_guard(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
         player_not_ready_guard(update, player)
@@ -1432,9 +1442,9 @@ def show_order_menu(bot, game, player, ntf=None):
         if not terrs:
             prompt = "Who is this order for?"
         elif not player.builder.terr_remove:
-            prompt = "{}.\nAny others?".format(terrs)
+            prompt = "{}\nAny others?".format(terrs)
         else:
-            prompt = "{}.\nWho do you want to remove?".format(terrs)
+            prompt = "{}\nWho do you want to remove?".format(terrs)
     else:
         prompt = order_menu_prompts[ntf]
 
@@ -1470,7 +1480,7 @@ def delete_cmd(bot, update):
         private_chat_guard(update)
 
         game = player_in_game_guard(update)
-        game_status_guard(update, game, "STARTED")
+        game_status_guard(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
         player_not_ready_guard(update, player)
@@ -1541,7 +1551,7 @@ def ready_cmd(bot, update):
         private_chat_guard(update)
 
         game = player_in_game_guard(update)
-        game_status_guard(update, game, "STARTED")
+        game_status_guard(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
         player_not_ready_guard(update, player)
@@ -1563,7 +1573,7 @@ def unready_cmd(bot, update):
         private_chat_guard(update)
 
         game = player_in_game_guard(update)
-        game_status_guard(update, game, "STARTED")
+        game_status_guard(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
         player_ready_guard(update, player)
@@ -1603,7 +1613,7 @@ def generic_private_msg_handler(bot, update):
 
     player = game.players[player_id]
 
-    if game.status == "STARTED":
+    if game.status == "ORDER_PHASE":
         if not player.ready and player.builder:
             order_msg_handler(bot, update, game, player)
 
