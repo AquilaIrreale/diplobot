@@ -26,12 +26,13 @@ class Graph:
         return set(self._graph_dict.keys())
 
     def edges(self):
-        edges = {}
+        edges = set()
 
         for v in self._graph_dict:
             for neigh in self._graph_dict[v]:
-                if {neigh, v} not in edges:
-                    edges.add({v, neigh})
+                s = frozenset((neigh, v))
+                if s not in edges:
+                    edges.add(s)
 
         return edges
 
