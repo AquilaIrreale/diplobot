@@ -24,6 +24,7 @@ import logging
 import subprocess
 
 from copy import copy
+from operator import attrgetter
 from itertools import count, chain
 
 from telegram import (TelegramError,
@@ -54,7 +55,7 @@ except OSError:
 with f:
     token = f.read().strip()
 
-logging.basicConfig(format = "%(asctime)s - %(name)s - %(levelname)s %(message)s", level = logging.INFO)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -460,7 +461,7 @@ class OrderBuilder:
         return False
 
     def auto_coast(self):
-        if (self.board[self.terr].kind != 'F'
+        if (self.board[self.terr].kind != "F"
             or self.building.targ not in split_coasts):
 
             return True
@@ -950,8 +951,8 @@ class Player:
         self._orders = orders
         self.builder.orders = orders
 
-    nation = property(lambda self: self._nation, set_nation)
-    orders = property(lambda self: self._orders, set_orders)
+    nation = property(attrgetter("_nation"), set_nation)
+    orders = property(attrgetter("_orders"), set_orders)
 
     def reset(self):
         self.orders.clear()
@@ -1024,13 +1025,13 @@ class HandlerGuard(Exception):
 
 
 def group_chat_guard(update):
-    if update.message.chat.type != 'group':
+    if update.message.chat.type != "group":
         update.message.reply_text("This command can only be used in a group chat")
         raise HandlerGuard
 
 
 def private_chat_guard(update):
-    if update.message.chat.type != 'private':
+    if update.message.chat.type != "private":
         update.message.reply_text("This command can only be used in a private chat")
         raise HandlerGuard
 
@@ -1102,7 +1103,7 @@ def newgame(bot, chat_id, from_id):
     bot.send_message(chat_id,
                      "A new <i>Diplomacy</i>  game is starting!\n"
                      "Join now with /join",
-                     parse_mode = ParseMode.HTML)
+                     parse_mode=ParseMode.HTML)
 
     handle = new_game.add_player(from_id, bot).get_handle(bot, chat_id)
 
@@ -1354,7 +1355,7 @@ def year_msg_handler(bot, update, game):
 
 
 def show_timeout_menu(bot, game):
-    game.status = 'CHOOSING_TIMEOUT'
+    game.status = "CHOOSING_TIMEOUT"
 
     # TODO: implement this
 
@@ -1369,9 +1370,9 @@ def game_start(bot, game):
 
     start_message += "\nThe year is {}\nLet the game begin!".format(game.printable_year())
 
-    bot.send_message(game.chat_id, start_message, parse_mode="HTML")
+    bot.send_message(game.chat_id, start_message, parse_mode=ParseMode.HTML)
 
-    game.status = 'ORDER_PHASE'
+    game.status = "ORDER_PHASE"
 
     turn_start(bot, game)
 
@@ -1499,7 +1500,7 @@ parse_delete_num_re = re.compile(r"^(\d+)$")
 parse_delete_range_re = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 
 def parse_delete_msg(s, n):
-    ss = s.split(',')
+    ss = s.split(",")
 
     for s in map(str.strip, ss):
         match1 = parse_delete_num_re.match(s)
@@ -1620,9 +1621,14 @@ def generic_private_msg_handler(bot, update):
         elif not player.ready and player.deleting:
             delete_msg_handler(bot, update, game, player)
 
+    elif (game.status == "RETREAT_PHASE"
+        and not player.retreats_ready):
+
+        retreat_msg_handler(bot, update, game, player)
+
 
 def error_handler(bot, update, error):
-    logger.warning('Update "%s" caused error "%s"', update, error)
+    logger.warning("Update \"%s\" caused error \"%s\"", update, error)
 
 
 def main():
@@ -1641,7 +1647,7 @@ def main():
     dp.add_handler(CommandHandler("unready",   unready_cmd))
 
     #dp.add_handler(CallbackQueryHandler(newgame_cbh,      pattern = "NEWGAME_.*"))
-    dp.add_handler(CallbackQueryHandler(nations_menu_cbh, pattern = "NATION_.*"))
+    dp.add_handler(CallbackQueryHandler(nations_menu_cbh, pattern="NATION_.*"))
 
     dp.add_handler(MessageHandler(
         Filters.text & Filters.group, generic_group_msg_handler))
@@ -1653,7 +1659,7 @@ def main():
     updater.start_polling()
     updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
 
