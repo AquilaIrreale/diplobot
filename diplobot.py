@@ -830,19 +830,7 @@ class OrderBuilder:
         if self.more:
             hint = territories - hint
 
-        terrs = sorted(hint, key=str.upper)
-
-        r3 = len(terrs) % 3
-        r4 = len(terrs) % 4
-
-        if r4 == 0:
-            cols = 4
-        elif r3 == 0:
-            cols = 3
-        else:
-            cols = 3 if r3 > r4 else 4
-
-        keyboard = [terrs[i:i+cols] for i in range(0, len(terrs), cols)]
+        keyboard = make_grid(sorted(hint, key=str.upper))
 
         keyboard.append(["More..."])
 
@@ -857,6 +845,20 @@ class OrderBuilder:
         keyboard.append(["Back"])
 
         return ReplyKeyboardMarkup(keyboard)
+
+
+def make_grid(l):
+    r3 = len(l) % 3
+    r4 = len(l) % 4
+
+    if r4 == 0:
+        cols = 4
+    elif r3 == 0:
+        cols = 3
+    else:
+        cols = 3 if r3 > r4 else 4
+
+    return [l[i:i+cols] for i in range(0, len(l), cols)]
 
 
 def format_board(board):
@@ -942,6 +944,10 @@ class Player:
         self.builder = OrderBuilder(board, self._orders)
         self.ready = False
         self.deleting = False
+
+        self.retreats = {}
+        self.destroyed = set()
+        self.retreat_choices = []
 
     def set_nation(self, nation):
         self._nation = nation
@@ -1372,12 +1378,12 @@ def game_start(bot, game):
 
     bot.send_message(game.chat_id, start_message, parse_mode=ParseMode.HTML)
 
-    game.status = "ORDER_PHASE"
-
     turn_start(bot, game)
 
 
 def turn_start(bot, game):
+    game.status = "ORDER_PHASE"
+
     for p in game.players.values():
         p.reset()
         bot.send_message(p.id, "Awaiting orders for {}".format(game.date()))
@@ -1591,7 +1597,284 @@ def unready_cmd(bot, update):
 
 def ready_check(bot, game):
     if all(p.ready for p in game.players.values()):
-        adjudicate(bot, game) # TODO: continue here
+        if game.status == "ORDER_PHASE":
+            run_adjudication(bot, game)
+
+
+def run_adjudication(bot, game):
+    game.status = "ADJUDICATING"
+
+    data = [
+        (p.nation, p.get_handle(bot, game.chat_id), sorted(p.orders))
+        for p in sorted(game.players.values(), key=attrgetter("nation"))
+    ]
+
+    orders = list(chain(*(os for n, h, os in data)))
+    resolutions, retreats = adjudicate(game.board, orders)
+
+    for p in players:
+        dislodged = {t for t in retreats if game.board[t1].occupied == p.nation}
+
+        p.retreats = {t: retreats[t] for t in dislodged if retreats[t]}
+        p.destroyed = {t for t in dislodged if not retreats[t]}
+
+        p.retreat_choices = [
+            (t, game.board[t].kind, None)
+            for t in sorted(dislodged, key=str.lower)
+            if retreats[t]
+        ]
+
+        p.ready = False
+
+    successful_moves = {
+        (o.terr, o.targ)
+        for o, r in zip(orders, resolutions)
+        if r and o.kind == "MOVE"
+    }
+
+    apply_moves(game.board, successful_moves)
+
+    res_it = iter(resolutions)
+    message = "<b>ORDERS - {}</b>\n\n".format(game.date())
+
+    for n, h, os in data:
+        if not os:
+            continue
+
+        message += "{}: ({})\n".format(n, h)
+
+        for o in os:
+            res_mark = "\N{OK HAND SIGN}" if next(res_it) else "\N{OPEN HANDS SIGN}"
+
+            message += "{} {}\n".format(str(o), res_mark) #TODO: use long format
+
+        message += "\n"
+
+    if retreats:
+        message += ("<b>These units have been dislodged:</b>\n"
+            + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
+            + "Awaiting retreat orders")
+
+    bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
+
+    game.status = "RETREAT_PHASE"
+
+    for p in game.players.values():
+        show_retreats_menu(bot, game, player)
+
+
+def apply_moves(board, moves):
+    nations = []
+    kinds = []
+
+    for t1, t2 in moves:
+        nations.append(board[t1].occupied)
+        kinds.append(board[t1].kind)
+        board[t1].occupied = None
+        board[t1].kind = None
+
+    for (t1, t2), n, k in zip(moves, nations, kinds):
+        board[t2].occupied = n
+        board[t2].kind = k
+
+
+def show_retreats_menu(bot, game, player):
+    if not player.retreat_choices and not player.destroyed:
+        player.ready = True
+        retreats_ready_check(bot, game)
+        return
+
+    message = "Some of you units have been dislodged\n\n"
+
+    for t in player.destroyed:
+        message += "{} has nowere to go and will be disbanded\n".format(t)
+
+    for t1, k, t2 in player.retreat_choices:
+        message += "{} can retreat to {}\n".format(
+            t1, ", ".join(player.retreats[t1]))
+
+    bot.send_message(player.id, message)
+
+    if not player.retreat_choices:
+        player.ready = True
+        retreats_ready_check(bot, game)
+        return
+
+    show_retreats_prompt(bot, game, player)
+
+
+def show_retreats_prompt(bot, game, player):
+    try:
+        t = next(t1 for t1, k, t2 in player.retreat_choices if t2 is None)
+    except StopIteration:
+        message = "The following retreats will be attempted:\n\n"
+
+        for t1, k, t2 in player.retreat_choices:
+            message += "{}-{}\n".format(t1, t2)
+
+        message += "\nIs this correct"
+
+        keyboard = [
+            ["Yes", "No"],
+        ]
+
+        bot.send_message(
+            player.id, message, reply_markup=ReplyKeyboardMarkup(keyboard))
+
+        return
+
+    keyboard = make_grid(sorted(player.retreats[t], key=str.lower))
+
+    keyboard.append("Disband")
+
+    if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
+        keyboard.append(["Back"])
+
+    bot.send_message(
+        player.id, "Where should {} retreat to?".format(t),
+        reply_markup=ReplyKeyboardMarkup(keyboard))
+
+
+def retreat_msg_handler(bot, update, game, player):
+    s = update.message.text.strip().upper()
+
+    try:
+        t1, k, i = next(
+            (t1, k, i)
+            for i, (t1, k, t2)
+            in enumerate(player.retreat_choices)
+            if t2 is None)
+
+    except StopIteration:
+        if s in {"Y", "YES"}:
+            player.ready = True
+            update.message.reply_text(
+                "Retreats committed", reply_markup=ReplyKeyboardRemove())
+            retreats_ready_check(bot, game)
+
+        elif s in {"N", "NO"}:
+            t1, k, t2 = player.retreat_choices[-1]
+            player.retreat_choices[-1] = (t1, k, None)
+            show_retreats_prompt(bot, game, player)
+
+        else:
+            update.message.reply_text("Invalid input")
+
+        return
+
+    if s == "BACK":
+        if i == 0:
+            update.message.reply_text("Invalid input")
+
+        else:
+            player.retreat_choices[i-1] = (t1, k, None)
+            show_retreats_prompt(bot, game, player)
+
+        return
+
+    if s == "DISBAND":
+        player.retreat_choices[i] = (t1, k, False)
+        show_retreats_prompt(bot, game, player)
+        return
+
+    try:
+        t2 = terr_names.match_case(s)
+    except KeyError:
+        update.message.reply_text("Invalid input")
+        return
+
+    if t not in player.retreats[t1]:
+        update.message.reply_text("Can't retreat in " + t2)
+        return
+
+    player.retreat_choices[i] = (t1, k, t2)
+    show_retreats_prompt(bot, game, player)
+
+
+def retreats_ready_check(bot, game):
+    if all(p.ready for p in game.player.values()):
+        execute_retreats(bot, game)
+
+
+def execute_retreats(bot, game):
+    retreats = set()
+    destroyed = set()
+
+    for p in game.players.values():
+        retreats.update(p.retreat_choices)
+        destroyed.update(p.destroyed)
+
+    seen = set()
+    dupes = set()
+
+    for t1, k, t2 in retreats:
+        if not t2:
+            continue
+
+        if t2 in seen:
+            dupes.add(t2)
+            continue
+
+        seen.add(t2)
+
+    for p in game.players.values():
+        for t1, k, t2 in p.retreat_choices:
+            if t2 and t2 not in dupes:
+                game.board[t2].occupied = p.nation
+                game.board[t2].kind = k
+
+    bad_retreats  = sorted(
+        filter(lambda r: r[2] in dupes, retreats),
+        key=lambda r: (r[2].upper(), r[0].upper()))
+
+    good_retreats = sorted(
+        filter(lambda r: r[2] not in dupes, retreats),
+        key=lambda r: (r[0].upper(), r[2].upper()))
+
+    message = ""
+
+    if destroyed:
+        message += ("These units couldn't retreat and have been disbanded\n\n"
+                    + ", ".join(sorted(destroyed, key=str.lower)) + "\n")
+
+    if good_retreats:
+        message += "\nThe following retreat orders have been carried out\n"
+
+        for t1, k, t2 in good_retreats:
+            if t2:
+                message += "{}-{}\n".format(t1, t2)
+            else:
+                message += "{} disband\n".format(t1)
+
+        message += "\n"
+
+    if bad_retreats:
+        message += ("\nThe following retreat orders were in conflict "
+                    "and were not carried out. The corresponding units "
+                    "have been disbanded\n")
+
+        for t1, k, t2 in bad_retreats:
+            message += "{}-{}\n".format(t1, t2)
+
+    if message:
+        bot.send_message(game.chat_id, message)
+
+    if game.autumn:
+        update_centers(bot, game)
+    else:
+        advance(bot, game)
+
+
+def update_centers(bot, game):
+    pass #TODO
+
+
+def advance(bot, game):
+    game.advance()
+
+    #TODO: print board
+
+    turn_start(bot, game)
 
 
 def generic_group_msg_handler(bot, update):
@@ -1622,7 +1905,7 @@ def generic_private_msg_handler(bot, update):
             delete_msg_handler(bot, update, game, player)
 
     elif (game.status == "RETREAT_PHASE"
-        and not player.retreats_ready):
+        and not player.ready):
 
         retreat_msg_handler(bot, update, game, player)
 
