@@ -228,6 +228,7 @@ prod_centers = {
 
 class Territory:
     def __init__(self, owner=None, occupied=None, kind=None, coast=None):
+        self.owner = owner
         self.occupied = occupied
         self.kind = kind
         self.coast = coast
