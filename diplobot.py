@@ -25,7 +25,7 @@ import subprocess
 
 from copy import copy
 from operator import attrgetter
-from itertools import count, chain
+from itertools import chain
 
 from telegram import (TelegramError,
                       InlineKeyboardButton,
@@ -192,8 +192,9 @@ def strip_coast(t):
     return t[:3]
 
 
-territories = {strip_coast(t)
-    for t in chain(land_graph.vertices(), sea_graph.vertices())}
+territories = {
+    strip_coast(t) for t in chain(land_graph.vertices(), sea_graph.vertices())
+}
 
 terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}, key=str.upper))
 
@@ -206,10 +207,12 @@ offshore = {
 
 coast = set(map(strip_coast, sea_graph.vertices() - offshore))
 
-bla_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
-bal_coast  = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
-main_coast = {strip_coast(t)
-    for t in sea_graph.neighbors(offshore - {"BLA", "BAL", "BOT"})}
+bla_coast = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
+bal_coast = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
+main_coast = {
+    strip_coast(t)
+    for t in sea_graph.neighbors(offshore - {"BLA", "BAL", "BOT"})
+}
 
 coasts = (bla_coast, bal_coast, main_coast)
 
@@ -463,7 +466,7 @@ class OrderBuilder:
 
     def auto_coast(self):
         if (self.board[self.terr].kind != "F"
-            or self.building.targ not in split_coasts):
+                or self.building.targ not in split_coasts):
 
             return True
 
@@ -472,14 +475,14 @@ class OrderBuilder:
         for c in ("(NC)", "(SC)"):
             try:
                 if self.terr in sea_graph.neighbors((self.building.targ + c,)):
-                    self.coast = c
+                    self.building.coast = c
                     i += 1
 
             except KeyError:
                 pass
 
         if i != 1:
-            self.coast = None
+            self.building.coast = None
             return False
 
         return True
@@ -731,7 +734,7 @@ class OrderBuilder:
 
             for t in occupied(self.board) - self.terrs:
                 if r & (reachables(t, self.board)
-                    | reachables_via_c(t, self.board)):
+                        | reachables_via_c(t, self.board)):
 
                     ret.add(t)
 
@@ -761,7 +764,7 @@ class OrderBuilder:
     def get_targs_hint(self):
         if self.building.kind == "MOVE":
             return (reachables(self.terr, self.board)
-                | reachables_via_c(self.building.orig, self.board))
+                    | reachables_via_c(self.building.orig, self.board))
 
         if self.building.kind == "SUPH":
             return reachables(self.terr, self.board)
@@ -773,7 +776,7 @@ class OrderBuilder:
                 ret = ret & reachables(t, self.board)
 
             ret = ret & (reachables(self.building.orig, self.board)
-                | reachables_via_c(self.building.orig, self.board))
+                         | reachables_via_c(self.building.orig, self.board))
 
             return ret
 
@@ -787,7 +790,8 @@ class OrderBuilder:
         "TARG": lambda self: self.get_targs_hint()
     }
 
-    def get_kind_keyboard(self):
+    @staticmethod
+    def get_kind_keyboard():
         return ReplyKeyboardMarkup([
             ["Hold"],
             ["Move (attack)"],
@@ -797,13 +801,15 @@ class OrderBuilder:
             ["Back"]
         ])
 
-    def get_coasts_keyboard(self):
+    @staticmethod
+    def get_coasts_keyboard():
         return ReplyKeyboardMarkup([
             ["North", "South"],
             ["Back"]
         ])
 
-    def get_yesno_keyboard(self):
+    @staticmethod
+    def get_yesno_keyboard():
         return ReplyKeyboardMarkup([
             ["Yes", "No"],
             ["Back"]
@@ -930,9 +936,9 @@ def adjudicate(board, orders):
 
     retreats = {t1: t2s for t1, t2s in (parse_ret(s) for s in lines if s)}
 
-    for i in range(len(orders)):
-        if orders[i].kind == "HOLD":
-            resolutions[i] = orders[i].terr not in retreats
+    for i, o in enumerate(orders):
+        if o.kind == "HOLD":
+            resolutions[i] = o.terr not in retreats
 
     return resolutions, retreats
 
@@ -1066,25 +1072,37 @@ def game_status_guard(update, game, status):
 def player_not_ready_guard(update, player):
     if player.ready:
         update.message.reply_text(
-            "You have already committed you orders. Withdraw with /unready", quote=False)
+            "You have already committed you orders. Withdraw with /unready",
+            quote=False)
+
         raise HandlerGuard
 
 
 def player_ready_guard(update, player):
     if not player.ready:
-        update.message.reply_text("You have not committed your orders yet", quote=False)
+        update.message.reply_text(
+            "You have not committed your orders yet",
+            quote=False)
+
         raise HandlerGuard
 
 
 def player_not_building_order_guard(update, player):
     if player.builder:
-        update.message.reply_text("You have an order to complete first", quote=False)
+        update.message.reply_text(
+            "You have an order to complete first",
+            quote=False)
+
         raise HandlerGuard
 
 
 def player_not_deleting_orders_guard(update, player):
     if player.deleting:
-        update.message.reply_text("You have to tell me what orders to delete first (back to abort)", quote=False)
+        update.message.reply_text(
+            "You have to tell me what orders to delete first "
+            "(type back to abort)",
+            quote=False)
+
         raise HandlerGuard
 
 
@@ -1102,17 +1120,13 @@ def help_cmd(bot, update):
 
 
 def newgame(bot, chat_id, from_id):
-    global games
-
     new_game = Game(chat_id)
     games[chat_id] = new_game
 
     bot.send_message(chat_id,
-                     "A new <i>Diplomacy</i>  game is starting!\n"
+                     "A new <i>Diplomacy</i> game is starting!\n"
                      "Join now with /join",
                      parse_mode=ParseMode.HTML)
-
-    handle = new_game.add_player(from_id, bot).get_handle(bot, chat_id)
 
 
 def newgame_cmd(bot, update):
@@ -1169,8 +1183,6 @@ def newgame_cmd(bot, update):
 
 
 def closegame_cmd(bot, update):
-    global games
-
     try:
         group_chat_guard(update)
         game_exists_guard(update)
@@ -1204,21 +1216,28 @@ def join_cmd(bot, update):
 
     chat_id = update.message.chat.id
     user_id = update.message.from_user.id
-    handle  = "@" + update.message.from_user.username
+
+    handle = "@" + update.message.from_user.username
 
     game = games[chat_id]
 
     if game.status != "NEW":
-        update.message.reply_text(handle + " you can't join right now", quote=False)
+        update.message.reply_text(
+            handle + " you can't join right now", quote=False)
+
         return
 
     if user_id in game.players:
-        update.message.reply_text(handle + " you already have joined this game", quote=False)
+        update.message.reply_text(
+            handle + " you already have joined this game", quote=False)
+
         return
 
     for g in games.values():
         if user_id in g.players:
-            update.message.reply_text(handle + " you are in another game already", quote=False)
+            update.message.reply_text(
+                handle + " you are in another game already", quote=False)
+
             return
 
     game.add_player(user_id, bot)
@@ -1240,7 +1259,9 @@ def startgame_cmd(bot, update):
 
     #TODO: uncomment this!
     #if len(game.players) < 2:
-    #    update.message.reply_text("At least two people have to join before the game can start", quote=False)
+    #    update.message.reply_text(
+    #        "At least two people have to join before the game can start", quote=False)
+    #
     #    return
 
     startgame(bot, game)
@@ -1387,7 +1408,10 @@ def turn_start(bot, game):
 
     for p in game.players.values():
         p.reset()
-        bot.send_message(p.id, "Awaiting orders for {}".format(game.date()))
+        bot.send_message(
+            p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
+            parse_mode=ParseMode.HTML)
+
         show_command_menu(bot, game, p)
 
 
@@ -1613,8 +1637,8 @@ def run_adjudication(bot, game):
     orders = list(chain(*(os for n, h, os in data)))
     resolutions, retreats = adjudicate(game.board, orders)
 
-    for p in players:
-        dislodged = {t for t in retreats if game.board[t1].occupied == p.nation}
+    for p in game.players.values():
+        dislodged = {t for t in retreats if game.board[t].occupied == p.nation}
 
         p.retreats = {t: retreats[t] for t in dislodged if retreats[t]}
         p.destroyed = {t for t in dislodged if not retreats[t]}
@@ -1645,7 +1669,9 @@ def run_adjudication(bot, game):
         message += "{}: ({})\n".format(n, h)
 
         for o in os:
-            res_mark = "\N{OK HAND SIGN}" if next(res_it) else "\N{OPEN HANDS SIGN}"
+            res_mark = ("\N{OK HAND SIGN}"
+                        if next(res_it)
+                        else "\N{OPEN HANDS SIGN}")
 
             message += "{} {}\n".format(str(o), res_mark) #TODO: use long format
 
@@ -1653,15 +1679,15 @@ def run_adjudication(bot, game):
 
     if retreats:
         message += ("<b>These units have been dislodged:</b>\n"
-            + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
-            + "Awaiting retreat orders")
+                    + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
+                    + "Awaiting retreat orders")
 
     bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
 
     game.status = "RETREAT_PHASE"
 
     for p in game.players.values():
-        show_retreats_menu(bot, game, player)
+        show_retreats_menu(bot, game, p)
 
 
 def apply_moves(board, moves):
@@ -1685,16 +1711,16 @@ def show_retreats_menu(bot, game, player):
         retreats_ready_check(bot, game)
         return
 
-    message = "Some of you units have been dislodged\n\n"
+    message = "<b>Some of you units have been dislodged</b>\n\n"
 
     for t in player.destroyed:
-        message += "{} has nowere to go and will be disbanded\n".format(t)
+        message += "<b>{}</b> has nowere to go and will be disbanded\n".format(t)
 
     for t1, k, t2 in player.retreat_choices:
-        message += "{} can retreat to {}\n".format(
+        message += "<b>{}</b> can retreat to {}\n".format(
             t1, ", ".join(player.retreats[t1]))
 
-    bot.send_message(player.id, message)
+    bot.send_message(player.id, message, parse_mode=ParseMode.HTML)
 
     if not player.retreat_choices:
         player.ready = True
@@ -1726,7 +1752,7 @@ def show_retreats_prompt(bot, game, player):
 
     keyboard = make_grid(sorted(player.retreats[t], key=str.lower))
 
-    keyboard.append("Disband")
+    keyboard.append(["Disband"])
 
     if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
         keyboard.append(["Back"])
@@ -1784,7 +1810,7 @@ def retreat_msg_handler(bot, update, game, player):
         update.message.reply_text("Invalid input")
         return
 
-    if t not in player.retreats[t1]:
+    if t2 not in player.retreats[t1]:
         update.message.reply_text("Can't retreat in " + t2)
         return
 
@@ -1793,7 +1819,7 @@ def retreat_msg_handler(bot, update, game, player):
 
 
 def retreats_ready_check(bot, game):
-    if all(p.ready for p in game.player.values()):
+    if all(p.ready for p in game.players.values()):
         execute_retreats(bot, game)
 
 
@@ -1824,7 +1850,7 @@ def execute_retreats(bot, game):
                 game.board[t2].occupied = p.nation
                 game.board[t2].kind = k
 
-    bad_retreats  = sorted(
+    bad_retreats = sorted(
         filter(lambda r: r[2] in dupes, retreats),
         key=lambda r: (r[2].upper(), r[0].upper()))
 
@@ -1906,7 +1932,7 @@ def generic_private_msg_handler(bot, update):
             delete_msg_handler(bot, update, game, player)
 
     elif (game.status == "RETREAT_PHASE"
-        and not player.ready):
+          and not player.ready):
 
         retreat_msg_handler(bot, update, game, player)
 

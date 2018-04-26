@@ -25,5 +25,4 @@ class InsensitiveList(list):
             if upper == item_upper:
                 return elem
 
-        else:
-            raise KeyError
+        raise KeyError
