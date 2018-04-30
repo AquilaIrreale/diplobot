@@ -1128,6 +1128,8 @@ def newgame(bot, chat_id, from_id):
                      "Join now with /join",
                      parse_mode=ParseMode.HTML)
 
+    new_game.add_player(from_id, bot)
+
 
 def newgame_cmd(bot, update):
     try:
