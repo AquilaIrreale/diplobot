@@ -1226,7 +1226,8 @@ def closegame_cmd(bot, update):
     del games[update.message.chat.id]
 
     for p in game.players.values():
-        bot.send_message(p.id, "Game closed")
+        bot.send_message(
+            p.id, "Game closed", reply_markup=ReplyKeyboardRemove())
 
     update.message.reply_text("Game closed", quote=False)
 
