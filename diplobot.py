@@ -317,6 +317,35 @@ def make_board():
     }
 
 
+def occupied(board, nation=None):
+    if nation:
+        return {t for t in territories if board[t].occupied == nation}
+    else:
+        return {t for t in territories if board[t].occupied}
+
+
+def print_board(bot, game):
+    #TODO: make graphic
+
+    message = "DEBUG: state of the board\n\n"
+
+    for t in sorted(occupied(game.board), key=str.upper):
+        info = []
+
+        if game.board[t].occupied:
+            info.append("Occ. " + game.board[t].occupied)
+
+        if t in prod_centers:
+            info.append("Own. " + str(game.board[t].owner))
+
+        if not info:
+            continue
+
+        message += t + ": " + ", ".join(info) + "\n"
+
+    bot.send_message(game.chat_id, message)
+
+
 def reachables(t, board):
     if not board[t].occupied:
         return set()
@@ -361,13 +390,6 @@ def reachables_via_c(t, board):
     ret.discard(t)
 
     return ret
-
-
-def occupied(board, nation=None):
-    if nation:
-        return {t for t in territories if board[t].occupied == nation}
-    else:
-        return {t for t in territories if board[t].occupied}
 
 
 class Order:
@@ -1406,6 +1428,8 @@ def game_start(bot, game):
 
 
 def turn_start(bot, game):
+    print_board(bot, game)
+
     game.status = "ORDER_PHASE"
 
     for p in game.players.values():
@@ -1900,8 +1924,6 @@ def update_centers(bot, game):
 
 def advance(bot, game):
     game.advance()
-
-    #TODO: print board
 
     turn_start(bot, game)
 
