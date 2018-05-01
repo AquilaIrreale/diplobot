@@ -1002,7 +1002,7 @@ class Game:
     def __init__(self, chat_id):
         self.board = make_board()
         self.chat_id = chat_id
-        self.status = "NEW"
+        self.state = "NEW"
         self.players = {}
         self.assigning = None
         self.assigning_message = None
@@ -1086,7 +1086,7 @@ def player_in_game_guard(update):
 
 
 def game_status_guard(update, game, status):
-    if game.status != status:
+    if game.state != status:
         update.message.reply_text("You can't use this command right now")
         raise HandlerGuard
 
@@ -1246,7 +1246,7 @@ def join_cmd(bot, update):
 
     game = games[chat_id]
 
-    if game.status != "NEW":
+    if game.state != "NEW":
         update.message.reply_text(
             handle + " you can't join right now", quote=False)
 
@@ -1293,7 +1293,7 @@ def startgame_cmd(bot, update):
 
 
 def startgame(bot, game):
-    game.status = "CHOOSING_NATIONS"
+    game.state = "CHOOSING_NATIONS"
 
     bot.send_message(game.chat_id, "The game will begin shortly...")
     show_nations_menu(bot, game)
@@ -1335,7 +1335,7 @@ def nations_menu_cbh(bot, update):
     except KeyError:
         error = True
 
-    if error or game.status != "CHOOSING_NATIONS":
+    if error or game.state != "CHOOSING_NATIONS":
         update.callback_query.answer("This control is no longer valid")
         update.callback_query.message.edit_reply_markup()
         return
@@ -1382,7 +1382,7 @@ def nations_menu_finalize(bot, game):
 def show_year_menu(bot, game):
     bot.send_message(game.chat_id, "What year should the game begin in?")
 
-    game.status = "CHOOSING_YEAR"
+    game.state = "CHOOSING_YEAR"
 
 
 year_re = re.compile(r"^(\d*)\s*(AD|BC|CE|BCE)?$", re.IGNORECASE)
@@ -1408,7 +1408,7 @@ def year_msg_handler(bot, update, game):
 
 
 def show_timeout_menu(bot, game):
-    game.status = "CHOOSING_TIMEOUT"
+    game.state = "CHOOSING_TIMEOUT"
 
     # TODO: implement this
 
@@ -1431,7 +1431,7 @@ def game_start(bot, game):
 def turn_start(bot, game):
     print_board(bot, game)
 
-    game.status = "ORDER_PHASE"
+    game.state = "ORDER_PHASE"
 
     for p in game.players.values():
         p.reset()
@@ -1649,12 +1649,12 @@ def unready_cmd(bot, update):
 
 def ready_check(bot, game):
     if all(p.ready for p in game.players.values()):
-        if game.status == "ORDER_PHASE":
+        if game.state == "ORDER_PHASE":
             run_adjudication(bot, game)
 
 
 def run_adjudication(bot, game):
-    game.status = "ADJUDICATING"
+    game.state = "ADJUDICATING"
 
     data = [
         (p.nation, p.get_handle(bot, game.chat_id), sorted(p.orders))
@@ -1711,7 +1711,7 @@ def run_adjudication(bot, game):
 
     bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
 
-    game.status = "RETREAT_PHASE"
+    game.state = "RETREAT_PHASE"
 
     for p in game.players.values():
         show_retreats_menu(bot, game, p)
@@ -1935,7 +1935,7 @@ def generic_group_msg_handler(bot, update):
     except KeyError:
         return
 
-    if game.status == "CHOOSING_YEAR":
+    if game.state == "CHOOSING_YEAR":
         year_msg_handler(bot, update, game)
 
 
@@ -1949,14 +1949,14 @@ def generic_private_msg_handler(bot, update):
 
     player = game.players[player_id]
 
-    if game.status == "ORDER_PHASE":
+    if game.state == "ORDER_PHASE":
         if not player.ready and player.builder:
             order_msg_handler(bot, update, game, player)
 
         elif not player.ready and player.deleting:
             delete_msg_handler(bot, update, game, player)
 
-    elif (game.status == "RETREAT_PHASE"
+    elif (game.state == "RETREAT_PHASE"
           and not player.ready):
 
         retreat_msg_handler(bot, update, game, player)
