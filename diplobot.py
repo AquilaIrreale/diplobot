@@ -28,11 +28,11 @@ from operator import attrgetter
 from itertools import chain
 
 from telegram import (TelegramError,
-                      InlineKeyboardButton,
-                      InlineKeyboardMarkup,
+                      InlineKeyboardButton as IKB,
+                      InlineKeyboardMarkup as IKM,
                       ParseMode,
-                      ReplyKeyboardMarkup,
-                      ReplyKeyboardRemove)
+                      ReplyKeyboardMarkup as RKM,
+                      ReplyKeyboardRemove as RKRemove)
 
 from telegram.ext import (Updater,
                           CommandHandler,
@@ -814,7 +814,7 @@ class OrderBuilder:
 
     @staticmethod
     def get_kind_keyboard():
-        return ReplyKeyboardMarkup([
+        return RKM([
             ["Hold"],
             ["Move (attack)"],
             ["Support to Hold"],
@@ -825,14 +825,14 @@ class OrderBuilder:
 
     @staticmethod
     def get_coasts_keyboard():
-        return ReplyKeyboardMarkup([
+        return RKM([
             ["North", "South"],
             ["Back"]
         ])
 
     @staticmethod
     def get_yesno_keyboard():
-        return ReplyKeyboardMarkup([
+        return RKM([
             ["Yes", "No"],
             ["Back"]
         ])
@@ -873,7 +873,7 @@ class OrderBuilder:
 
         keyboard.append(["Back"])
 
-        return ReplyKeyboardMarkup(keyboard)
+        return RKM(keyboard)
 
 
 def make_grid(l):
@@ -1173,10 +1173,10 @@ def newgame_cmd(bot, update):
     #game = games[chat_id]
     #
     #if from_id == game.adj_id:
-    #    newgame_yes = InlineKeyboardButton("Yes", callback_data="NEWGAME_YES")
-    #    newgame_no  = InlineKeyboardButton("No", callback_data="NEWGAME_NO")
+    #    newgame_yes = IKB("Yes", callback_data="NEWGAME_YES")
+    #    newgame_no  = IKB("No", callback_data="NEWGAME_NO")
 
-    #    newgame_yesno = InlineKeyboardMarkup([[newgame_yes, newgame_no]])
+    #    newgame_yesno = IKM([[newgame_yes, newgame_no]])
 
     #    update.message.reply_text("Would you like to start over?",
     #                              reply_markup = newgame_yesno, quote=False)
@@ -1226,8 +1226,7 @@ def closegame_cmd(bot, update):
     del games[update.message.chat.id]
 
     for p in game.players.values():
-        bot.send_message(
-            p.id, "Game closed", reply_markup=ReplyKeyboardRemove())
+            bot, p.id, "Game closed", reply_markup=RKRemove())
 
     update.message.reply_text("Game closed", quote=False)
 
@@ -1314,8 +1313,8 @@ def show_nations_menu(bot, game):
     available = [n for n in nations if n not in taken]
     available.append("RANDOM")
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(n, callback_data="NATION_" + n)]
+    keyboard = IKM([
+        [IKB(n, callback_data="NATION_" + n)]
         for n in available
     ])
 
@@ -1772,8 +1771,7 @@ def show_retreats_prompt(bot, game, player):
             ["Yes", "No"],
         ]
 
-        bot.send_message(
-            player.id, message, reply_markup=ReplyKeyboardMarkup(keyboard))
+            bot, player.id, message, reply_markup=RKM(keyboard))
 
         return
 
@@ -1784,9 +1782,7 @@ def show_retreats_prompt(bot, game, player):
     if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
         keyboard.append(["Back"])
 
-    bot.send_message(
-        player.id, "Where should {} retreat to?".format(t),
-        reply_markup=ReplyKeyboardMarkup(keyboard))
+        reply_markup=RKM(keyboard))
 
 
 def retreat_msg_handler(bot, update, game, player):
@@ -1803,7 +1799,7 @@ def retreat_msg_handler(bot, update, game, player):
         if s in {"Y", "YES"}:
             player.ready = True
             update.message.reply_text(
-                "Retreats committed", reply_markup=ReplyKeyboardRemove())
+                "Retreats committed", reply_markup=RKRemove())
             retreats_ready_check(bot, game)
 
         elif s in {"N", "NO"}:
