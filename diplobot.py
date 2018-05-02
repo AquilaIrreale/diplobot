@@ -218,7 +218,7 @@ coasts = (bla_coast, bal_coast, main_coast)
 
 split_coasts = {"Bul", "Spa", "StP"}
 
-prod_centers = {
+supp_centers = {
     "Ank", "Bel", "Ber", "Bre", "Bud",
     "Bul", "Con", "Den", "Edi", "Gre",
     "Hol", "Kie", "Lon", "Lvp", "Mar",
@@ -324,6 +324,13 @@ def occupied(board, nation=None):
         return {t for t in territories if board[t].occupied}
 
 
+def owned(board, nation=None):
+    if owned:
+        return {t for t in supp_centers if board[t].owner == nation}
+    else:
+        return {t for t in supp_centers if board[t].owner}
+
+
 def print_board(bot, game):
     #TODO: make graphic
 
@@ -335,7 +342,7 @@ def print_board(bot, game):
         if game.board[t].occupied:
             info.append("Occ. " + game.board[t].occupied)
 
-        if t in prod_centers:
+        if t in supp_centers:
             info.append("Own. " + str(game.board[t].owner))
 
         if not info:
@@ -977,6 +984,12 @@ class Player:
         self.retreats = {}
         self.destroyed = set()
         self.retreat_choices = []
+
+        self.units_choices = []
+        self.units_done = False
+        self.units_options = {}
+        self.units_disbanding = False
+        self.units_delta = 0
 
     def set_nation(self, nation):
         self._nation = nation
@@ -1912,17 +1925,143 @@ def execute_retreats(bot, game):
     if game.autumn:
         update_centers(bot, game)
     else:
-        advance(bot, game)
+        game.advance()
+        turn_start(bot, game)
 
 
 def update_centers(bot, game):
-    pass #TODO
+    game.state = "BUILDING_PHASE"
+
+    for t in supp_centers:
+        if game.board[t].occupied:
+            game.board[t].owner = game.board[t].occupied
+
+    for p in game.players.values():
+        units = occupied(game.board, p.nation)
+        centers = owned(game.board, p.nation)
+
+        if not centers:
+            pass #TODO: player lost
+
+        units_n = len(units)
+        centers_n = len(centers)
+
+        if units_n > centers_n:
+            p.units_disbanding = True
+            p.units_options = units
+            p.units_delta = units_n - centers_n
+
+        elif units_n < centers_n:
+            p.units_disbanding = False
+
+            p.units_options = (home_centers[p.nation]
+                               & centers
+                               - occupied(game.board))
+
+            p.units_delta = min(
+                centers_n - units_n, len(p.units_options))
+
+        p.units_done = False
+        p.units_choices = []
+        p.ready = not p.units_delta
+
+        if not p.ready:
+            show_units_menu(bot, game, player)
+
+    units_ready_check(bot, game)
 
 
-def advance(bot, game):
-    game.advance()
+def show_units_menu(bot, game, player):
+    if player.units_disbanding:
+        bot.send_message(
+            player.id, "Supply centers have been updated.\n"
+                       "You have to disband {} of your units".format(
+                            player.units_delta))
 
-    turn_start(bot, game)
+        show_disband_prompt(bot, game, player)
+
+    else:
+        bot.send_message(
+            player.id, "Supply centers have been updated.\n"
+                       "You can build up to {} new units".format(
+                            player.units_delta))
+
+        show_build_prompt(bot, game, player)
+
+
+def show_disband_prompt(bot, game, player):
+    if not player.units_delta:
+        message = ("These units will be disbanded: {}\n"
+                   "Are you sure?".format(player.units_choices))
+
+        keyboard = [["Yes", "No"]]
+
+    else:
+        keyboard = make_grid(
+            player.units_options.difference(player.units_choices))
+
+        if not player.units_choices:
+            message = "Which unit should be disbanded{}?".format(
+                " first" if len(player.units_options) > 1 else "")
+
+        else:
+            message = "Disbanding {}. Who else?".format(
+                ", ".join(player.units_choices))
+
+            keyboard.append(["Back"])
+
+    bot.send_message(player.id, message, reply_markup=RKM(keyboard))
+
+
+def show_build_prompt(bot, game, player):
+    try:
+        t, k, c = player.units_choices[-1]
+    except IndexError:
+        t, k, c = True, True, True
+
+    if not k:
+        message = "What kind of unit do you want to build?"
+        keyboard = [["Army", "Fleet"],
+                    ["Back"]]
+
+    elif not c and t in split_coasts:
+        message = "On which coast?"
+        keyboard = [["North", "South"]
+                    ["Back"]]
+
+    elif not player.units_delta or player.units_done:
+        message = "These new units will be built:\n\n"
+
+        for t, k, c in player.units_choices:
+            message += "{} in {}{}\n".format(
+                "An army" if k == "A" else "A fleet", t, c or "")
+
+        message += "\nAre you sure?"
+
+        keyboard = [["Yes", "No"]]
+
+    else:
+        keyboard = make_grid(
+            player.units_options.difference(player.units_choices))
+
+        keyboard.append(["Done"])
+
+        if not player.units_choices:
+            message = "Where do you want to build?"
+
+        else:
+            message = "Building in {}.\nWhere else?".format(
+                ", ".join(player.units_choices))
+
+            keyboard.append(["Back"])
+
+    bot.send_message(player.id, message, reply_markup=RKM(keyboard))
+
+
+def units_ready_check(bot, game):
+    if all(p.ready for p in game.player.values()):
+        game.advance()
+        turn_start(bot, game)
 
 
 def generic_group_msg_handler(bot, update):
