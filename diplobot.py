@@ -1239,7 +1239,7 @@ def closegame_cmd(bot, update):
     del games[update.message.chat.id]
 
     for p in game.players.values():
-            bot, p.id, "Game closed", reply_markup=RKRemove())
+        bot.send_message(p.id, "Game closed", reply_markup=RKRemove())
 
     update.message.reply_text("Game closed", quote=False)
 
@@ -1466,7 +1466,7 @@ def show_command_menu(bot, game, player):
                 "/delete - withdraw an order\n"
                 "/ready - when you are done")
 
-    bot.send_message(player.id, message, reply_markup=ReplyKeyboardRemove())
+    bot.send_message(player.id, message, reply_markup=RKRemove())
 
 
 def new_cmd(bot, update):
@@ -1784,7 +1784,7 @@ def show_retreats_prompt(bot, game, player):
             ["Yes", "No"],
         ]
 
-            bot, player.id, message, reply_markup=RKM(keyboard))
+        bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
         return
 
@@ -1795,6 +1795,8 @@ def show_retreats_prompt(bot, game, player):
     if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
         keyboard.append(["Back"])
 
+    bot.send_message(
+        player.id, "Where should {} retreat to?".format(t),
         reply_markup=RKM(keyboard))
 
 
