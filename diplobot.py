@@ -1701,9 +1701,13 @@ def run_adjudication(bot, game):
     res_it = iter(resolutions)
     message = "<b>ORDERS - {}</b>\n\n".format(game.date())
 
+    no_orders = True
+
     for n, h, os in data:
         if not os:
             continue
+
+        no_orders = False
 
         message += "{}: ({})\n".format(n, h)
 
@@ -1715,6 +1719,9 @@ def run_adjudication(bot, game):
             message += "{} {}\n".format(str(o), res_mark) #TODO: use long format
 
         message += "\n"
+
+    if no_orders:
+        message += "None\n\n"
 
     if retreats:
         message += ("<b>These units have been dislodged:</b>\n"
