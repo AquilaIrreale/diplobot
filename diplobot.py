@@ -27,8 +27,7 @@ from copy import copy
 from operator import attrgetter
 from itertools import chain
 
-from telegram import (TelegramError,
-                      InlineKeyboardButton as IKB,
+from telegram import (InlineKeyboardButton as IKB,
                       InlineKeyboardMarkup as IKM,
                       ParseMode,
                       ReplyKeyboardMarkup as RKM,
@@ -40,7 +39,7 @@ from telegram.ext import (Updater,
                           CallbackQueryHandler,
                           Filters)
 
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 
 from insensitive_list import InsensitiveList
 from graph import Graph
@@ -350,7 +349,7 @@ def print_board(bot, game):
 
         message += t + ": " + ", ".join(info) + "\n"
 
-    bot.send_message(game.chat_id, message)
+    send_with_retry(bot, game.chat_id, message)
 
 
 def reachables(t, board):
@@ -1028,7 +1027,7 @@ class Game:
 
         if bot:
             handle = player.get_handle(bot, self.chat_id)
-            bot.send_message(self.chat_id, handle + " joined the game")
+            send_with_retry(bot, self.chat_id, handle + " joined the game")
 
         return player
 
@@ -1158,7 +1157,7 @@ def newgame(bot, chat_id, from_id):
     new_game = Game(chat_id)
     games[chat_id] = new_game
 
-    bot.send_message(chat_id,
+    send_with_retry(bot, chat_id,
                      "A new <i>Diplomacy</i> game is starting!\n"
                      "Join now with /join",
                      parse_mode=ParseMode.HTML)
@@ -1239,7 +1238,7 @@ def closegame_cmd(bot, update):
     del games[update.message.chat.id]
 
     for p in game.players.values():
-        bot.send_message(p.id, "Game closed", reply_markup=RKRemove())
+        send_with_retry(bot, p.id, "Game closed", reply_markup=RKRemove())
 
     update.message.reply_text("Game closed", quote=False)
 
@@ -1307,7 +1306,7 @@ def startgame_cmd(bot, update):
 def startgame(bot, game):
     game.state = "CHOOSING_NATIONS"
 
-    bot.send_message(game.chat_id, "The game will begin shortly...")
+    send_with_retry(bot, game.chat_id, "The game will begin shortly...")
     show_nations_menu(bot, game)
 
 
@@ -1332,8 +1331,8 @@ def show_nations_menu(bot, game):
     ])
 
     handle = player.get_handle(bot, game.chat_id)
-    message = bot.send_message(
-        game.chat_id, handle + " choose a nation", reply_markup=keyboard)
+    message = send_with_retry(
+        bot, game.chat_id, handle + " choose a nation", reply_markup=keyboard)
 
     game.assigning = player.id
     game.assigning_message = message
@@ -1365,12 +1364,18 @@ def nations_menu_cbh(bot, update):
 
     handle = player.get_handle(bot, game.chat_id)
 
-    try:
-        update.callback_query.message.edit_reply_markup()
-        update.callback_query.message.edit_text(
-            "{} will play as {}".format(handle, player.nation))
-    except TelegramError:
-        pass
+    for _ in range(10):
+        try:
+            update.callback_query.message.edit_reply_markup()
+            update.callback_query.message.edit_text(
+                "{} will play as {}".format(handle, player.nation))
+        except TimedOut as e:
+            pass
+        else:
+            break
+
+    else:
+        raise e
 
     show_nations_menu(bot, game)
 
@@ -1392,7 +1397,7 @@ def nations_menu_finalize(bot, game):
 
 
 def show_year_menu(bot, game):
-    bot.send_message(game.chat_id, "What year should the game begin in?")
+    send_with_retry(bot, game.chat_id, "What year should the game begin in?")
 
     game.state = "CHOOSING_YEAR"
 
@@ -1435,7 +1440,7 @@ def game_start(bot, game):
 
     start_message += "\nThe year is {}\nLet the game begin!".format(game.printable_year())
 
-    bot.send_message(game.chat_id, start_message, parse_mode=ParseMode.HTML)
+    send_with_retry(bot, game.chat_id, start_message, parse_mode=ParseMode.HTML)
 
     turn_start(bot, game)
 
@@ -1445,10 +1450,15 @@ def turn_start(bot, game):
 
     game.state = "ORDER_PHASE"
 
+    send_with_retry(
+        bot, game.chat_id,
+        "<b>Awaiting orders for {}</b>".format(game.date()),
+        parse_mode=ParseMode.HTML)
+
     for p in game.players.values():
         p.reset()
-        bot.send_message(
-            p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
+        send_with_retry(
+            bot, p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
             parse_mode=ParseMode.HTML)
 
         show_command_menu(bot, game, p)
@@ -1466,7 +1476,7 @@ def show_command_menu(bot, game, player):
                 "/delete - withdraw an order\n"
                 "/ready - when you are done")
 
-    bot.send_message(player.id, message, reply_markup=RKRemove())
+    send_with_retry(bot, player.id, message, reply_markup=RKRemove())
 
 
 def new_cmd(bot, update):
@@ -1519,8 +1529,8 @@ def show_order_menu(bot, game, player, ntf=None):
     else:
         prompt = order_menu_prompts[ntf]
 
-    bot.send_message(
-        player.id, prompt, reply_markup=player.builder.get_keyboard())
+    send_with_retry(
+        bot, player.id, prompt, reply_markup=player.builder.get_keyboard())
 
 
 def order_msg_handler(bot, update, game, player):
@@ -1728,7 +1738,7 @@ def run_adjudication(bot, game):
                     + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
                     + "Awaiting retreat orders")
 
-    bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
+    send_with_retry(bot, game.chat_id, message, parse_mode=ParseMode.HTML)
 
     game.state = "RETREAT_PHASE"
 
@@ -1766,7 +1776,7 @@ def show_retreats_menu(bot, game, player):
         message += "<b>{}</b> can retreat to {}\n".format(
             t1, ", ".join(player.retreats[t1]))
 
-    bot.send_message(player.id, message, parse_mode=ParseMode.HTML)
+    send_with_retry(bot, player.id, message, parse_mode=ParseMode.HTML)
 
     if not player.retreat_choices:
         player.ready = True
@@ -1791,7 +1801,7 @@ def show_retreats_prompt(bot, game, player):
             ["Yes", "No"],
         ]
 
-        bot.send_message(player.id, message, reply_markup=RKM(keyboard))
+        send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
 
         return
 
@@ -1802,8 +1812,8 @@ def show_retreats_prompt(bot, game, player):
     if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
         keyboard.append(["Back"])
 
-    bot.send_message(
-        player.id, "Where should {} retreat to?".format(t),
+    send_with_retry(
+        bot, player.id, "Where should {} retreat to?".format(t),
         reply_markup=RKM(keyboard))
 
 
@@ -1929,7 +1939,7 @@ def execute_retreats(bot, game):
             message += "{}-{}\n".format(t1, t2)
 
     if message:
-        bot.send_message(game.chat_id, message)
+        send_with_retry(bot, game.chat_id, message)
 
     if game.autumn:
         update_centers(bot, game)
@@ -1940,6 +1950,8 @@ def execute_retreats(bot, game):
 
 def update_centers(bot, game):
     game.state = "BUILDING_PHASE"
+
+    send_with_retry(bot, game.chat_id, "Updating supply centers...")
 
     for t in supp_centers:
         if game.board[t].occupied:
@@ -1975,25 +1987,27 @@ def update_centers(bot, game):
         p.ready = not p.units_delta
 
         if not p.ready:
-            show_units_menu(bot, game, player)
+            show_units_menu(bot, game, p)
 
     units_ready_check(bot, game)
 
 
 def show_units_menu(bot, game, player):
     if player.units_disbanding:
-        bot.send_message(
-            player.id, "Supply centers have been updated.\n"
-                       "You have to disband {} of your units".format(
-                            player.units_delta))
+        send_with_retry(
+            bot, player.id,
+            "Supply centers have been updated.\n"
+            "You have to disband {} of your units".format(
+                player.units_delta))
 
         show_disband_prompt(bot, game, player)
 
     else:
-        bot.send_message(
-            player.id, "Supply centers have been updated.\n"
-                       "You can build up to {} new units".format(
-                            player.units_delta))
+        send_with_retry(
+            bot, player.id,
+            "Supply centers have been updated.\n"
+            "You can build up to {} new units".format(
+                player.units_delta))
 
         show_build_prompt(bot, game, player)
 
@@ -2001,13 +2015,15 @@ def show_units_menu(bot, game, player):
 def show_disband_prompt(bot, game, player):
     if not player.units_delta:
         message = ("These units will be disbanded: {}\n"
-                   "Are you sure?".format(player.units_choices))
+                   "Are you sure?".format(
+                        ", ".join(player.units_choices)))
 
         keyboard = [["Yes", "No"]]
 
     else:
-        keyboard = make_grid(
-            player.units_options.difference(player.units_choices))
+        keyboard = make_grid(sorted(
+            player.units_options.difference(player.units_choices),
+            key=str.lower))
 
         if not player.units_choices:
             message = "Which unit should be disbanded{}?".format(
@@ -2019,7 +2035,7 @@ def show_disband_prompt(bot, game, player):
 
             keyboard.append(["Back"])
 
-    bot.send_message(player.id, message, reply_markup=RKM(keyboard))
+    send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
 
 
 def show_build_prompt(bot, game, player):
@@ -2050,8 +2066,9 @@ def show_build_prompt(bot, game, player):
         keyboard = [["Yes", "No"]]
 
     else:
-        keyboard = make_grid(
-            player.units_options.difference(player.units_choices))
+        keyboard = make_grid(sorted(
+            player.units_options.difference(player.units_choices),
+            key=str.lower))
 
         keyboard.append(["Done"])
 
@@ -2064,11 +2081,11 @@ def show_build_prompt(bot, game, player):
 
             keyboard.append(["Back"])
 
-    bot.send_message(player.id, message, reply_markup=RKM(keyboard))
+    send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
 
 
 def units_ready_check(bot, game):
-    if all(p.ready for p in game.player.values()):
+    if all(p.ready for p in game.players.values()):
         game.advance()
         turn_start(bot, game)
 
@@ -2093,21 +2110,40 @@ def generic_private_msg_handler(bot, update):
 
     player = game.players[player_id]
 
-    if game.state == "ORDER_PHASE":
-        if not player.ready and player.builder:
-            order_msg_handler(bot, update, game, player)
+    if not player.ready:
+        if game.state == "ORDER_PHASE":
+            if player.builder:
+                order_msg_handler(bot, update, game, player)
 
-        elif not player.ready and player.deleting:
-            delete_msg_handler(bot, update, game, player)
+            elif player.deleting:
+                delete_msg_handler(bot, update, game, player)
 
-    elif (game.state == "RETREAT_PHASE"
-          and not player.ready):
+        elif game.state == "RETREAT_PHASE":
+            retreat_msg_handler(bot, update, game, player)
 
-        retreat_msg_handler(bot, update, game, player)
+        elif game.state == "BUILDING_PHASE":
+            if player.units_disbanding:
+                disband_msg_handler(bot, update, game, player)
+
+            else:
+                build_msg_handler(bot, update, game, player)
 
 
 def error_handler(bot, update, error):
     logger.warning("Update \"%s\" caused error \"%s\"", update, error)
+
+
+def send_with_retry(bot, *args, **kwargs):
+    for _ in range(10):
+        try:
+            bot.send_message(*args, **kwargs)
+        except TimedOut as e:
+            pass
+        else:
+            break
+
+    else:
+        raise e
 
 
 def main():
