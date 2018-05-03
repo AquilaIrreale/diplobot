@@ -45,15 +45,6 @@ from insensitive_list import InsensitiveList
 from graph import Graph
 
 
-try:
-    f = open("token", "r")
-except OSError:
-    print("Token file not found")
-    exit(1)
-
-with f:
-    token = f.read().strip()
-
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -2147,6 +2138,15 @@ def send_with_retry(bot, *args, **kwargs):
 
 
 def main():
+    try:
+        f = open("token", "r")
+    except OSError:
+        print("Token file not found")
+        exit(1)
+
+    with f:
+        token = f.read().strip()
+
     updater = Updater(token)
     dp = updater.dispatcher
 
