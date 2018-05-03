@@ -1953,6 +1953,31 @@ def execute_retreats(bot, game):
         turn_start(bot, game)
 
 
+def check_victory(bot, game):
+    if len(game.players) == 1:
+        winner = next(p for p in game.players.values())
+
+    else:
+        try:
+            winner = next(p for p in game.players.values()
+                          if owned(game.board, p.nation) >= 18)
+
+        except StopIteration:
+            return False
+
+    send_with_retry(bot, winner.id, "<b>You won!</b>",
+        parse_mode=ParseMode.HTML)
+
+    send_with_retry(bot, game.chat_id,
+        "<b>{} ({}) wins!</b>".format(
+            winner.nation, winner.get_handle(bot, game.chat_id))
+        parse_mode=ParseMode.HTML)
+
+    del games[game.chat_id]
+
+    return True
+
+
 def update_centers(bot, game):
     game.state = "BUILDING_PHASE"
 
@@ -1962,12 +1987,30 @@ def update_centers(bot, game):
         if game.board[t].occupied:
             game.board[t].owner = game.board[t].occupied
 
+    if check_victory(bot, game):
+        return
+
     for p in game.players.values():
         units = occupied(game.board, p.nation)
         centers = owned(game.board, p.nation)
 
         if not centers:
-            pass #TODO: player lost
+            for t in units:
+                game.board[t].occupied = None
+                game.board[t].kind = None
+                game.board[t].coast = None
+
+            send_with_retry(bot, p.id, "You lost!")
+            send_with_retry(
+                bot, game.chat_id, "{} ({}) was eliminated".format(
+                    p.nation, p.get_handle(bot, game.chat_id)))
+
+            game.players = {k: v for k, v in game.players.items() if v is not p}
+
+            if check_victory(bot, game):
+                return
+
+            continue
 
         units_n = len(units)
         centers_n = len(centers)
