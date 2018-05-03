@@ -340,7 +340,7 @@ def print_board(bot, game):
 
     message = "DEBUG: state of the board\n\n"
 
-    for t in sorted(occupied(game.board), key=str.upper):
+    for t in sorted(occupied(game.board) | supp_centers, key=str.upper):
         info = []
 
         if game.board[t].occupied:
