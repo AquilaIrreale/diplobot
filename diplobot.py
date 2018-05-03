@@ -218,6 +218,20 @@ supp_centers = {
     "Tun", "Ven", "Vie", "War"
 }
 
+home_centers = {
+    "AUSTRIA" : {"Bud", "Tri", "Vie"},
+    "ENGLAND" : {"Edi", "Lon", "Lvp"},
+    "FRANCE"  : {"Bre", "Mar", "Par"},
+    "GERMANY" : {"Ber", "Kie", "Mun"},
+    "ITALY"   : {"Nap", "Rom", "Ven"},
+    "RUSSIA"  : {"Mos", "Sev", "StP", "War"},
+    "TURKEY"  : {"Ank", "Con", "Smy"}
+}
+
+def infer_kind(t):
+    return ("F" if t in offshore else
+            "A" if t not in coast else None)
+
 
 class Territory:
     def __init__(self, owner=None, occupied=None, kind=None, coast=None):
@@ -2029,6 +2043,16 @@ def show_disband_prompt(bot, game, player):
     send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
 
 
+def format_build(choices):
+    s = ""
+
+    for t, k, c in choices:
+        s += "{} in {}{}\n".format(
+            "An army" if k == "A" else "A fleet", t, c or "")
+
+    return s
+
+
 def show_build_prompt(bot, game, player):
     try:
         t, k, c = player.units_choices[-1]
@@ -2040,17 +2064,22 @@ def show_build_prompt(bot, game, player):
         keyboard = [["Army", "Fleet"],
                     ["Back"]]
 
-    elif not c and t in split_coasts:
+    elif not c and t in split_coasts and k == "F":
         message = "On which coast?"
-        keyboard = [["North", "South"]
+        keyboard = [["North", "South"],
                     ["Back"]]
 
     elif not player.units_delta or player.units_done:
-        message = "These new units will be built:\n\n"
+        if not player.units_choices:
+            message = "No new units will be built."
 
-        for t, k, c in player.units_choices:
-            message += "{} in {}{}\n".format(
-                "An army" if k == "A" else "A fleet", t, c or "")
+        elif len(player.units_choices) == 1:
+            message = ("This new unit will be built:\n\n"
+                       + format_build(player.units_choices))
+
+        else:
+            message = ("These new units will be built:\n\n"
+                       + format_build(player.units_choices))
 
         message += "\nAre you sure?"
 
@@ -2058,7 +2087,7 @@ def show_build_prompt(bot, game, player):
 
     else:
         keyboard = make_grid(sorted(
-            player.units_options.difference(player.units_choices),
+            player.units_options - {t for t, k, c in player.units_choices},
             key=str.lower))
 
         keyboard.append(["Done"])
@@ -2067,18 +2096,164 @@ def show_build_prompt(bot, game, player):
             message = "Where do you want to build?"
 
         else:
-            message = "Building in {}.\nWhere else?".format(
-                ", ".join(player.units_choices))
+            message = ("Currently building:\n\n"
+                       + format_build(player.units_choices)
+                       + "\nWhat else?")
 
             keyboard.append(["Back"])
 
     send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
 
 
+def disband_msg_handler(bot, update, game, player):
+    s = update.message.text.strip().upper()
+
+    message = None
+
+    if (player.units_choices
+            and player.units_delta
+            and s == "BACK"):
+
+        player.units_choices.pop()
+        player.units_delta += 1
+
+    elif player.units_delta == 0:
+        if s in {"Y", "YES"}:
+            player.ready = True
+            units_ready_check(bot, game)
+            return
+
+        elif s in {"N", "NO"}:
+            player.units_choices.pop()
+            player.units_delta += 1
+
+        else:
+            message = "Invalid input"
+
+    else:
+        try:
+            t = terr_names.match_case(s)
+        except KeyError:
+            message = "Invalid input"
+        else:
+            available = player.units_options.difference(player.units_choices)
+
+            if t not in available:
+                message = "Invalid input"
+            else:
+                player.units_choices.append(t)
+                player.units_delta -= 1
+
+    if message:
+        send_with_retry(bot, player.id, message)
+        return
+
+    show_disband_prompt(bot, game, player)
+
+
+def build_msg_handler(bot, update, game, player):
+    s = update.message.text.strip().upper()
+
+    if (player.units_choices
+            and player.units_delta
+            and not player.units_done
+            and s == "BACK"):
+
+        try:
+            player.units_choices.pop()
+        except IndexError:
+            pass
+        else:
+            player.units_delta += 1
+
+        show_build_prompt(bot, game, player)
+        return
+
+    message = None
+
+    try:
+        t, k, c = player.units_choices[-1]
+    except IndexError:
+        t, k, c = True, True, True
+
+    if not k:
+        if s in {"A", "ARMY"}:
+            player.units_choices[-1] = t, "A", c
+        elif s in {"F", "FLEET"}:
+            player.units_choices[-1] = t, "F", c
+        else:
+            message = "Invalid input"
+
+    elif not c and t in split_coasts and k == "F":
+        if s in {"NORTH", "NORTH COAST", "NC", "(NC)"}:
+            player.units_choices[-1] = t, k, "(NC)"
+        elif s in {"SOUTH", "SOUTH COAST", "SC", "(SC)"}:
+            player.units_choices[-1] = t, k, "(SC)"
+        else:
+            message = "Invalid input"
+
+    elif player.units_done or player.units_delta == 0:
+        if s in {"Y", "YES"}:
+            player.ready = True
+            units_ready_check(bot, game)
+            return
+
+        elif s in {"N", "NO"}:
+            player.units_done = False
+
+            if not player.units_delta and player.units_choices:
+                player.units_choices.pop()
+                player.units_delta += 1
+
+        else:
+            message = "Invalid input"
+
+    elif s == "DONE":
+        player.units_done = True
+
+    else:
+        try:
+            t = terr_names.match_case(s)
+        except KeyError:
+            message = "Invalid input"
+        else:
+            available = (player.units_options
+                         - {t for t, k, c in player.units_choices})
+
+            if t not in available:
+                message = "Invalid input"
+            else:
+                player.units_choices.append((t, infer_kind(t), None))
+                player.units_delta -= 1
+
+    if message:
+        send_with_retry(bot, player.id, message)
+        return
+
+    show_build_prompt(bot, game, player)
+
+
 def units_ready_check(bot, game):
     if all(p.ready for p in game.players.values()):
-        game.advance()
-        turn_start(bot, game)
+        execute_builds_and_disbands(bot, game)
+
+
+def execute_builds_and_disbands(bot, game):
+    for p in game.players.values():
+        if p.units_disbanding:
+            for t in p.units_choices:
+                game.board[t].occupied = None
+                game.board[t].kind = None
+                game.board[t].coast = None
+
+        else:
+            for t, k, c in p.units_choices:
+                game.board[t].occupied = p.nation
+                game.board[t].kind = k
+                game.board[t].coast = c
+
+    game.advance()
+    turn_start(bot, game)
 
 
 def generic_group_msg_handler(bot, update):
