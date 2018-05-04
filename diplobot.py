@@ -1965,12 +1965,14 @@ def check_victory(bot, game):
         except StopIteration:
             return False
 
-    send_with_retry(bot, winner.id, "<b>You won!</b>",
+    send_with_retry(
+        bot, winner.id, "<b>You won!</b>",
         parse_mode=ParseMode.HTML)
 
-    send_with_retry(bot, game.chat_id,
+    send_with_retry(
+        bot, game.chat_id,
         "<b>{} ({}) wins!</b>".format(
-            winner.nation, winner.get_handle(bot, game.chat_id))
+            winner.nation, winner.get_handle(bot, game.chat_id)),
         parse_mode=ParseMode.HTML)
 
     del games[game.chat_id]
