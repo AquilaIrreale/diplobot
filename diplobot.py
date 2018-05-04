@@ -329,7 +329,7 @@ def occupied(board, nation=None):
 
 
 def owned(board, nation=None):
-    if owned:
+    if nation:
         return {t for t in supp_centers if board[t].owner == nation}
     else:
         return {t for t in supp_centers if board[t].owner}
