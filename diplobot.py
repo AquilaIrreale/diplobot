@@ -18,20 +18,26 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
+import os
+import io
 import re
 import random
 import logging
+import tempfile
 import subprocess
 
-from copy import copy
+from copy import copy, deepcopy
 from operator import attrgetter
 from itertools import chain
+
+import xml.etree.ElementTree as ET
 
 from telegram import (InlineKeyboardButton as IKB,
                       InlineKeyboardMarkup as IKM,
                       ParseMode,
                       ReplyKeyboardMarkup as RKM,
-                      ReplyKeyboardRemove as RKRemove)
+                      ReplyKeyboardRemove as RKRemove,
+                      ChatAction)
 
 from telegram.ext import (Updater,
                           CommandHandler,
@@ -335,9 +341,103 @@ def owned(board, nation=None):
         return {t for t in supp_centers if board[t].owner}
 
 
-def print_board(bot, game):
-    #TODO: make graphic
+def set_style(e, key, value):
+    style = e.get("style", default="")
 
+    if re.match(r"\b{}:".format(key), style):
+        style = re.sub(r"\b{}:[^;]*".format(key), "{}:{}".format(key, value), style)
+
+    else:
+        if style:
+            style += ';'
+
+        style += "{}:{}".format(key, value)
+
+    e.set("style", style)
+
+
+def del_style(e, key):
+    #import pdb; pdb.set_trace()
+    style = e.get("style", default="")
+    style = re.sub(r"\b{}:[^;]*;?".format(key), "", style)
+    e.set("style", style)
+
+
+board_svg = ET.parse("board.svg")
+
+piece_re = re.compile(r"^\w{3}_[AF](_(NC|SC))?$")
+
+for e in board_svg.getroot().iter():
+    if piece_re.match(e.get("id", default="")):
+        set_style(e, "display", "none")
+
+
+nation_colors = {
+    "AUSTRIA" : "#FE3A3A",
+    "ENGLAND" : "#163BC7",
+    "FRANCE"  : "#00E9FF",
+    "GERMANY" : "#878787",
+    "ITALY"   : "#00FF00",
+    "RUSSIA"  : "#BE68D6",
+    "TURKEY"  : "#F5F500"
+}
+
+
+def print_board(bot, game):
+    bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
+
+    board_copy = deepcopy(board_svg)
+    root = board_copy.getroot()
+
+    for t in owned(game.board) & supp_centers:
+        e = root.find('.//*[@id="{}_dot"]'.format(t))
+        color = nation_colors[game.board[t].owner]
+        set_style(e, "fill", color)
+
+    for t in occupied(game.board):
+        k = game.board[t].kind
+        c = game.board[t].coast
+
+        piece_id = "{}_{}".format(t, k)
+
+        if t in split_coasts and k == "F":
+            piece_id += "_NC" if c == "(NC)" else "_SC"
+
+        e = root.find('.//*[@id="{}"]/*'.format(piece_id))
+        color = nation_colors[game.board[t].occupied]
+        set_style(e, "fill", color)
+
+        e = root.find('.//*[@id="{}"]'.format(piece_id))
+        del_style(e, "display")
+
+    svg_fd, svg_fn = tempfile.mkstemp()
+    svg = os.fdopen(svg_fd, "wb")
+    board_copy.write(svg)
+    svg.close()
+
+    png_fd, png_fn = tempfile.mkstemp()
+    os.close(png_fd)
+
+    subprocess.run(
+        [
+            "inkscape",
+            "--export-png=" + png_fn,
+            "--export-width=1280",
+            "--export-height=1175",
+            svg_fn
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL)
+
+    png = open(png_fn, "rb")
+
+    bot.send_photo(game.chat_id, png, "State of the board")
+
+    os.unlink(png_fn)
+    os.unlink(svg_fn)
+
+
+def print_board_old(bot, game):
     message = "DEBUG: state of the board\n\n"
 
     for t in sorted(occupied(game.board) | supp_centers, key=str.upper):
