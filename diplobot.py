@@ -2066,7 +2066,7 @@ def check_victory(bot, game):
     else:
         try:
             winner = next(p for p in game.players.values()
-                          if owned(game.board, p.nation) >= 18)
+                          if len(owned(game.board, p.nation)) >= 18)
 
         except StopIteration:
             return False
