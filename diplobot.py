@@ -27,7 +27,7 @@ import tempfile
 import subprocess
 
 from copy import copy, deepcopy
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 from itertools import chain
 
 import xml.etree.ElementTree as ET
@@ -187,6 +187,11 @@ land_graph = Graph({
 def strip_coast(t):
     return t[:3]
 
+
+full_graph = Graph()
+
+for t1, t2 in chain(sea_graph.edges(), land_graph.edges()):
+    full_graph.add_edge((strip_coast(t1), strip_coast(t2)))
 
 territories = {
     strip_coast(t) for t in chain(land_graph.vertices(), sea_graph.vertices())
@@ -2081,6 +2086,31 @@ def check_victory(bot, game):
     return True
 
 
+def distance_from_home(t, nation):
+    distances = full_graph.distances(t)
+    return min(distances[hsc] for hsc in home_centers[nation])
+
+
+def auto_disband(board, nation, n):
+    candidates = sorted(
+        (
+            distance_from_home(t, nation),
+            0 if board[t].kind == "F" else 1,
+            t.upper(),
+            t
+        )
+
+        for t in occupied(board, nation)
+    )
+
+    disbanding = map(itemgetter(3), candidates[:n])
+
+    for t in disbanding:
+        board[t].occupied = None
+        board[t].kind = None
+        board[t].coast = None
+
+
 def update_centers(bot, game):
     game.state = "BUILDING_PHASE"
 
@@ -2093,11 +2123,18 @@ def update_centers(bot, game):
     if check_victory(bot, game):
         return
 
-    for p in game.players.values():
-        units = occupied(game.board, p.nation)
-        centers = owned(game.board, p.nation)
+    playing_nations = {p.nation: p for p in game.players.values()}
 
-        if not centers:
+    for n in nations:
+        try:
+            p = playing_nations[n]
+        except KeyError:
+            p = None
+
+        units = occupied(game.board, n)
+        centers = owned(game.board, n)
+
+        if p and not centers:
             for t in units:
                 game.board[t].occupied = None
                 game.board[t].kind = None
@@ -2117,6 +2154,12 @@ def update_centers(bot, game):
 
         units_n = len(units)
         centers_n = len(centers)
+
+        if not p:
+            if units_n > centers_n:
+                auto_disband(game.board, n, units_n - centers_n)
+
+            continue
 
         if units_n > centers_n:
             p.units_disbanding = True

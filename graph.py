@@ -11,6 +11,10 @@
   # warranty. <http://creativecommons.org/publicdomain/zero/1.0/>        #
   ########################################################################
 
+import math
+import heapq
+
+
 class Graph:
     def __init__(self, graph_dict=None):
         if graph_dict is None:
@@ -43,7 +47,10 @@ class Graph:
     def add_edge(self, edge):
         edge = set(edge)
         (v1, v2) = tuple(edge)
+        self._half_add_edge(v1, v2)
+        self._half_add_edge(v2, v1)
 
+    def _half_add_edge(self, v1, v2):
         if v1 in self._graph_dict:
             self._graph_dict[v1].add(v2)
 
@@ -57,6 +64,36 @@ class Graph:
             ret |= self._graph_dict[v]
 
         return ret - set(vs)
+
+    def distances(self, v):
+        distances = {v: math.inf for v in self.vertices()}
+        distances[v] = 0
+        queue = [(0, v)]
+
+        while queue:
+            curdist, cur = heapq.heappop(queue)
+
+            changed = set()
+
+            for n in self.neighbors((cur,)):
+                if curdist + 1 < distances[n]:
+                    distances[n] = curdist + 1
+                    changed.add(n)
+
+            for i, (p, v) in enumerate(queue):
+                if v in changed:
+                    queue[i] = (curdist + 1, v)
+                    changed.discard(v)
+
+                    if not changed:
+                        break
+
+            for v in changed:
+                queue.append((curdist + 1, v))
+
+            heapq.heapify(queue)
+
+        return distances
 
     def __str__(self):
         res = "Vertices: "
