@@ -431,7 +431,8 @@ def print_board(bot, game):
 
     png = open(png_fn, "rb")
 
-    bot.send_photo(game.chat_id, png, "State of the board")
+    bot.send_photo(
+        game.chat_id, png, "State of the board ({})".format(game.date()))
 
     os.unlink(png_fn)
     os.unlink(svg_fn)
