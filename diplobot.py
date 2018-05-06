@@ -539,8 +539,21 @@ class Order:
 
         return "Invalid order"
 
+    def nucleus(self):
+        if self.kind == "HOLD":
+            return ()
+        elif self.kind == "SUPH":
+            return (self.targ,)
+        elif self.kind == "MOVE":
+            return (self.terr, self.targ)
+        else:
+            return (self.orig, self.targ)
+
     def __lt__(self, other):
-        return str(self).upper() < str(other).upper()
+        n1 = self.nucleus()
+        n2 = other.nucleus()
+
+        return (n1, self.terr) < (n2, other.terr)
 
 
 class BuilderError(Exception):
