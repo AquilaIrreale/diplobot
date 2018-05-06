@@ -363,7 +363,6 @@ def set_style(e, key, value):
 
 
 def del_style(e, key):
-    #import pdb; pdb.set_trace()
     style = e.get("style", default="")
     style = re.sub(r"\b{}:[^;]*;?".format(key), "", style)
     e.set("style", style)
@@ -480,12 +479,12 @@ def reachables(t, board):
     return {strip_coast(x) for x in g.neighbors({t})}
 
 
-def reachables_via_c(t, board):
+def reachables_via_c(t, board, excluded={}):
     if t not in coast or not board[t].occupied or board[t].kind != "A":
         return set()
 
     checked = set()
-    to_check = sea_graph.neighbors({t}) & offshore
+    to_check = full_graph.neighbors({t}) & offshore
     ret = set()
 
     while to_check:
@@ -493,7 +492,7 @@ def reachables_via_c(t, board):
         to_check.discard(t1)
         checked.add(t1)
 
-        if not board[t1].occupied:
+        if not board[t1].occupied or t1 in excluded:
             continue
 
         for t2 in sea_graph.neighbors({t1}):
@@ -506,6 +505,25 @@ def reachables_via_c(t, board):
                 to_check.add(t2)
 
     ret.discard(t)
+
+    return ret
+
+
+def contiguous_fleets(ts, board):
+    nations = {board[t].occupied for t in ts if board[t].occupied}
+    to_check = sea_graph.neighbors(ts)
+    ret = copy(ts)
+
+    while to_check:
+        t = to_check.pop()
+
+        if (t in offshore
+                and board[t].occupied
+                and board[t].occupied not in nations):
+
+            ret.add(t)
+
+            to_check |= sea_graph.neighbors({t}) - ret
 
     return ret
 
@@ -878,41 +896,29 @@ class OrderBuilder:
             return available
 
     def get_origs_hint(self):
+        ret = set()
+
         if self.building.kind == "SUPM":
-            r = territories
-            ret = set()
+            common_neighbors = copy(territories)
 
             for t in self.terrs:
-                r = r & reachables(t, self.board)
+                common_neighbors &= reachables(t, self.board)
 
-            for t in occupied(self.board) - self.terrs:
-                if r & (reachables(t, self.board)
-                        | reachables_via_c(t, self.board)):
+            for t in territories:
+                if (not reachables(t, self.board).isdisjoint(common_neighbors)
+                        or not reachables_via_c(t, self.board, self.terrs)
+                            .isdisjoint(common_neighbors)):
 
                     ret.add(t)
 
-            return ret
+            ret -= self.terrs
 
         elif self.building.kind == "CONV":
-            ret = set()
-            to_check = set(self.terrs)
-            checked = set()
+            for t in sea_graph.neighbors(contiguous_fleets(self.terrs, self.board)):
+                if self.board[t].occupied and self.board[t].kind == "A":
+                    ret.add(t)
 
-            while to_check:
-                t1 = next(iter(to_check))
-                checked.add(t1)
-
-                for t2 in sea_graph.neighbors({t1}):
-                    if t2 in checked:
-                        continue
-
-                    if t2 in offshore:
-                        to_check.add(t2)
-
-                    if self.board[t2].occupied and self.board[t2].kind == "A":
-                        ret.add(t2)
-
-            return ret
+        return ret
 
     def get_targs_hint(self):
         if self.building.kind == "MOVE":
@@ -923,15 +929,16 @@ class OrderBuilder:
             return reachables(self.terr, self.board)
 
         elif self.building.kind == "SUPM":
-            ret = territories
+            common_neighbors = copy(territories)
 
             for t in self.terrs:
-                ret = ret & reachables(t, self.board)
+                common_neighbors &= reachables(t, self.board)
 
-            ret = ret & (reachables(self.building.orig, self.board)
-                         | reachables_via_c(self.building.orig, self.board))
-
-            return ret
+            return (
+                common_neighbors & (
+                    reachables(self.building.orig, self.board)
+                    | reachables_via_c(
+                        self.building.orig, self.board, self.terrs)))
 
         elif self.building.kind == "CONV":
             return reachables_via_c(self.building.orig, self.board)
