@@ -23,6 +23,7 @@ import io
 import re
 import time
 import random
+import pprint
 import logging
 import tempfile
 import subprocess
@@ -2512,7 +2513,7 @@ def generic_private_msg_handler(bot, update):
 
 
 def error_handler(bot, update, error):
-    logger.warning("Update \"%s\" caused error \"%s\"", update, error)
+    logger.warning("Got \"%s\" error while processing update:\n%s\n", error, pprint.pformat(update))
 
 
 def send_with_retry(bot, *args, **kwargs):
@@ -2520,6 +2521,7 @@ def send_with_retry(bot, *args, **kwargs):
         try:
             bot.send_message(*args, **kwargs)
         except TimedOut as e:
+            print("Retry " + t)
             time.sleep(t)
         else:
             break
@@ -2533,6 +2535,7 @@ def reply_text_with_retry(update, *args, **kwargs):
         try:
             update.message.reply_text(*args, **kwargs)
         except TimedOut as e:
+            print("Retry " + t)
             time.sleep(t)
         else:
             break
