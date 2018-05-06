@@ -1197,39 +1197,43 @@ class HandlerGuard(Exception):
 
 def group_chat_guard(update):
     if update.message.chat.type != "group":
-        update.message.reply_text("This command can only be used in a group chat")
+        reply_text_with_retry(update, "This command can only be used in a group chat")
         raise HandlerGuard
 
 
 def private_chat_guard(update):
     if update.message.chat.type != "private":
-        update.message.reply_text("This command can only be used in a private chat")
+        reply_text_with_retry(update, "This command can only be used in a private chat")
         raise HandlerGuard
 
 
 def game_exists_guard(update):
     if update.message.chat.id not in games:
-        update.message.reply_text("There is no game currently running in this chat\n"
-                                  "Start one with /newgame!")
+        reply_text_with_retry(
+            update,
+            "There is no game currently running in this chat\n"
+            "Start one with /newgame!")
+
         raise HandlerGuard
 
 def player_in_game_guard(update):
     try:
         return game_by_player(update.message.chat.id)
     except KeyError:
-        update.message.reply_text("You need to join a game to use this command")
+        reply_text_with_retry(update, "You need to join a game to use this command")
         raise HandlerGuard
 
 
 def game_status_guard(update, game, status):
     if game.state != status:
-        update.message.reply_text("You can't use this command right now")
+        reply_text_with_retry(update, "You can't use this command right now")
         raise HandlerGuard
 
 
 def player_not_ready_guard(update, player):
     if player.ready:
-        update.message.reply_text(
+        reply_text_with_retry(
+            update,
             "You have already committed you orders. Withdraw with /unready",
             quote=False)
 
@@ -1238,7 +1242,8 @@ def player_not_ready_guard(update, player):
 
 def player_ready_guard(update, player):
     if not player.ready:
-        update.message.reply_text(
+        reply_text_with_retry(
+            update,
             "You have not committed your orders yet",
             quote=False)
 
@@ -1247,7 +1252,8 @@ def player_ready_guard(update, player):
 
 def player_not_building_order_guard(update, player):
     if player.builder:
-        update.message.reply_text(
+        reply_text_with_retry(
+            update,
             "You have an order to complete first",
             quote=False)
 
@@ -1256,7 +1262,8 @@ def player_not_building_order_guard(update, player):
 
 def player_not_deleting_orders_guard(update, player):
     if player.deleting:
-        update.message.reply_text(
+        reply_text_with_retry(
+            update,
             "You have to tell me what orders to delete first "
             "(type back to abort)",
             quote=False)
@@ -1269,12 +1276,11 @@ def player_not_deleting_orders_guard(update, player):
 
 
 def start_cmd(bot, update):
-    update.message.reply_text("DiploBot started!", quote=False)
+    reply_text_with_retry(update, "DiploBot started!", quote=False)
 
 
 def help_cmd(bot, update):
-    update.message.reply_text("There's no help right now",
-                              quote=False)
+    reply_text_with_retry(update, "There's no help right now", quote=False)
 
 
 def newgame(bot, chat_id, from_id):
@@ -1302,7 +1308,7 @@ def newgame_cmd(bot, update):
         newgame(bot, chat_id, from_id)
         return
 
-    update.message.reply_text("A game is already running in this chat", quote=False)
+    reply_text_with_retry(update, "A game is already running in this chat", quote=False)
 
     #TODO: vote?
 
@@ -1364,7 +1370,7 @@ def closegame_cmd(bot, update):
     for p in game.players.values():
         send_with_retry(bot, p.id, "Game closed", reply_markup=RKRemove())
 
-    update.message.reply_text("Game closed", quote=False)
+    reply_text_with_retry(update, "Game closed", quote=False)
 
 
 def join_cmd(bot, update):
@@ -1382,21 +1388,21 @@ def join_cmd(bot, update):
     game = games[chat_id]
 
     if game.state != "NEW":
-        update.message.reply_text(
-            handle + " you can't join right now", quote=False)
+        reply_text_with_retry(
+            update, handle + " you can't join right now", quote=False)
 
         return
 
     if user_id in game.players:
-        update.message.reply_text(
-            handle + " you already have joined this game", quote=False)
+        reply_text_with_retry(
+            update, handle + " you already have joined this game", quote=False)
 
         return
 
     for g in games.values():
         if user_id in g.players:
-            update.message.reply_text(
-                handle + " you are in another game already", quote=False)
+            reply_text_with_retry(
+                update, handle + " you are in another game already", quote=False)
 
             return
 
@@ -1405,7 +1411,7 @@ def join_cmd(bot, update):
     if not game.is_full():
         return
 
-    update.message.reply_text("All the players have joined", quote=False)
+    reply_text_with_retry(update, "All the players have joined", quote=False)
     startgame(bot, game)
 
 
@@ -1536,7 +1542,7 @@ def year_msg_handler(bot, update, game):
         year = int(match.group(1))
 
     if not match or year == 0:
-        update.message.reply_text("That's not a valid year", quote=True)
+        reply_text_with_retry(update, "That's not a valid year", quote=True)
         return
 
     sign = match.group(2)
@@ -1619,9 +1625,9 @@ def new_cmd(bot, update):
         return
 
     if not player.builder.unordered():
-        update.message.reply_text("You have already sent orders to all of your units. "
-                                  "/delete the orders you want to change, or send /ready "
-                                  "when you are ready")
+        reply_text_with_retry(update, "You have already sent orders to all of your units. "
+                                      "/delete the orders you want to change, or send /ready "
+                                      "when you are ready")
         return
 
     player.builder.new()
@@ -1662,14 +1668,14 @@ def order_msg_handler(bot, update, game, player):
         ntf = player.builder.push(update.message.text)
 
     except ValueError:
-        update.message.reply_text("Invalid input")
+        reply_text_with_retry(update, "Invalid input")
 
     except IndexError:
         player.builder.pop()
         show_command_menu(bot, game, player)
 
     except BuilderError as e:
-        update.message.reply_text(e.message)
+        reply_text_with_retry(update, e.message)
 
     else:
         if ntf == "DONE":
@@ -1695,7 +1701,7 @@ def delete_cmd(bot, update):
     except HandlerGuard:
         return
 
-    update.message.reply_text("Which orders do you want to delete? (back to abort)")
+    reply_text_with_retry(update, "Which orders do you want to delete? (back to abort)")
 
     player.deleting = True
 
@@ -1736,7 +1742,7 @@ def delete_msg_handler(bot, update, game, player):
     try:
         ranges = set(parse_delete_msg(update.message.text, len(player.orders)))
     except ValueError:
-        update.message.reply_text("Invalid input")
+        reply_text_with_retry(update, "Invalid input")
         return
 
     orders = sorted(player.orders)
@@ -1766,7 +1772,7 @@ def ready_cmd(bot, update):
     except HandlerGuard:
         return
 
-    update.message.reply_text("Orders committed. Withdraw with /unready")
+    reply_text_with_retry(update, "Orders committed. Withdraw with /unready")
 
     player.ready = True
 
@@ -1786,7 +1792,7 @@ def unready_cmd(bot, update):
     except HandlerGuard:
         return
 
-    update.message.reply_text("Orders withdrawn")
+    reply_text_with_retry(update, "Orders withdrawn")
 
     player.ready = False
 
@@ -1954,8 +1960,8 @@ def retreat_msg_handler(bot, update, game, player):
     except StopIteration:
         if s in {"Y", "YES"}:
             player.ready = True
-            update.message.reply_text(
-                "Retreats committed", reply_markup=RKRemove())
+            reply_text_with_retry(
+                update, "Retreats committed", reply_markup=RKRemove())
             retreats_ready_check(bot, game)
 
         elif s in {"N", "NO"}:
@@ -1964,13 +1970,13 @@ def retreat_msg_handler(bot, update, game, player):
             show_retreats_prompt(bot, game, player)
 
         else:
-            update.message.reply_text("Invalid input")
+            reply_text_with_retry(update, "Invalid input")
 
         return
 
     if s == "BACK":
         if i == 0:
-            update.message.reply_text("Invalid input")
+            reply_text_with_retry(update, "Invalid input")
 
         else:
             player.retreat_choices[i-1] = (t1, k, None)
@@ -1986,11 +1992,11 @@ def retreat_msg_handler(bot, update, game, player):
     try:
         t2 = terr_names.match_case(s)
     except KeyError:
-        update.message.reply_text("Invalid input")
+        reply_text_with_retry(update, "Invalid input")
         return
 
     if t2 not in player.retreats[t1]:
-        update.message.reply_text("Can't retreat in " + t2)
+        reply_text_with_retry(update, "Can't retreat in " + t2)
         return
 
     player.retreat_choices[i] = (t1, k, t2)
@@ -2502,11 +2508,24 @@ def error_handler(bot, update, error):
 
 
 def send_with_retry(bot, *args, **kwargs):
-    for _ in range(10):
+    for t in range(1, 31):
         try:
             bot.send_message(*args, **kwargs)
         except TimedOut as e:
-            pass
+            time.sleep(t)
+        else:
+            break
+
+    else:
+        raise e
+
+
+def reply_text_with_retry(update, *args, **kwargs):
+    for t in range(1, 31):
+        try:
+            update.message.reply_text(*args, **kwargs)
+        except TimedOut as e:
+            time.sleep(t)
         else:
             break
 
