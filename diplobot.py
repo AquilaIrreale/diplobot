@@ -559,21 +559,24 @@ class Order:
 
         return "Invalid order"
 
-    def nucleus(self):
+    def key(self):
         if self.kind == "HOLD":
-            return ()
+            ret = (0, self.terr,)
         elif self.kind == "SUPH":
-            return (self.targ,)
+            ret = (0, self.targ, self.terr)
         elif self.kind == "MOVE":
-            return (self.terr, self.targ)
+            ret = (1, self.terr, self.targ)
+        elif self.kind == "SUPM":
+            ret = (1, self.orig, self.targ, 0, self.terr)
+        elif self.kind == "CONV":
+            ret = (1, self.orig, self.targ, 1, self.terr)
         else:
-            return (self.orig, self.targ)
+            raise ValueError
+
+        return tuple(x.lower() if isinstance(x, str) else x for x in ret)
 
     def __lt__(self, other):
-        n1 = self.nucleus()
-        n2 = other.nucleus()
-
-        return (n1, self.terr) < (n2, other.terr)
+        return self.key() < other.key()
 
 
 class BuilderError(Exception):
