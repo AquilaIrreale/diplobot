@@ -78,7 +78,7 @@ def del_style(e, key):
     e.set("style", style)
 
 
-board_svg = ET.parse("board.svg")
+board_svg = ET.parse("assets/board.svg")
 
 piece_re = re.compile(r"^\w{3}_[AF](_(NC|SC))?$")
 
