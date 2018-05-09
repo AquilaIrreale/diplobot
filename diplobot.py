@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
   ############################################################################
-  # diplobot.py - play Diplomacy through Telegram                            #
+  # Diplobot - play Diplomacy through Telegram                               #
   # Copyright (C) 2018 Simone Cimarelli a.k.a. AquilaIrreale                 #
   #                                                                          #
   # This program is free software: you can redistribute it and/or modify     #
