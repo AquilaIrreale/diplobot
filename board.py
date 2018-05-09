@@ -317,8 +317,7 @@ class Board(dict):
         return {t for t in supp_centers if self[t].owner in nations}
 
     def reachable(self, t):
-        if not self[t].occupied:
-            return set()
+        assert self[t].occupied
 
         if self[t].kind == "A":
             return land_graph.neighbors({t})
@@ -329,8 +328,7 @@ class Board(dict):
         return {strip_coast(x) for x in sea_graph.neighbors({t})}
 
     def reachable_via_c(self, t, excluded={}):
-        if t not in coast or not self[t].occupied or self[t].kind != "A":
-            return set()
+        assert t in coast and self[t].occupied and self[t].kind == "A"
 
         to_check = full_graph.neighbors({t}) & offshore
         checked = set()
@@ -357,9 +355,7 @@ class Board(dict):
         return ret
 
     def contiguous_fleets(self, ts):
-        for t in ts:
-            if t not in offshore:
-                raise ValueError
+        assert all(t in offshore for t in ts)
 
         nations = {self[t].occupied for t in ts if self[t].occupied}
 
