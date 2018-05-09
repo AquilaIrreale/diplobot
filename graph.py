@@ -42,9 +42,7 @@ class Graph:
 
         for v in self._graph_dict:
             for neigh in self._graph_dict[v]:
-                s = frozenset((neigh, v))
-                if s not in edges:
-                    edges.add(s)
+                edges.add(frozenset((neigh, v)))
 
         return edges
 
@@ -59,10 +57,10 @@ class Graph:
         self._half_add_edge(v2, v1)
 
     def _half_add_edge(self, v1, v2):
-        if v1 in self._graph_dict:
+        try:
             self._graph_dict[v1].add(v2)
 
-        else:
+        except KeyError:
             self._graph_dict[v1] = {v2}
 
     def neighbors(self, vs):
