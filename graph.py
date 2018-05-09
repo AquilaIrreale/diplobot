@@ -18,6 +18,7 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
+
 import math
 import heapq
 
@@ -71,6 +72,14 @@ class Graph:
             ret |= self._graph_dict[v]
 
         return ret - set(vs)
+
+    def shared_neighbors(self, vs):
+        ret = set(self.vertices())
+
+        for v in vs:
+            ret &= self.neighbors((v,))
+
+        return ret
 
     def distances(self, v):
         distances = {v: math.inf for v in self.vertices()}
