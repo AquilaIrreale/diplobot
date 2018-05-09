@@ -180,8 +180,8 @@ offshore = {
 
 coast = {strip_coast(t) for t in sea_graph.vertices() - offshore}
 
-bla_coast = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
-bal_coast = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
+bla_coast = {strip_coast(t) for t in sea_graph.neighbors("BLA")}
+bal_coast = {strip_coast(t) for t in sea_graph.neighbors(("BAL", "BOT"))}
 main_coast = {
     strip_coast(t)
     for t in sea_graph.neighbors(offshore - {"BLA", "BAL", "BOT"})
@@ -320,17 +320,17 @@ class Board(dict):
         assert self[t].occupied
 
         if self[t].kind == "A":
-            return land_graph.neighbors({t})
+            return land_graph.neighbors(t)
 
         if t in split_coasts:
             t += self[t].coast
 
-        return {strip_coast(x) for x in sea_graph.neighbors({t})}
+        return {strip_coast(x) for x in sea_graph.neighbors(t)}
 
     def reachable_via_c(self, t, excluded={}):
         assert t in coast and self[t].occupied and self[t].kind == "A"
 
-        to_check = full_graph.neighbors({t}) & offshore
+        to_check = full_graph.neighbors(t) & offshore
         checked = set()
         ret = set()
 
@@ -341,7 +341,7 @@ class Board(dict):
             if not self[t1].occupied or t1 in excluded:
                 continue
 
-            for t2 in sea_graph.neighbors({t1}):
+            for t2 in sea_graph.neighbors(t1):
                 t2 = strip_coast(t2)
 
                 if t2 in coast:
@@ -374,6 +374,6 @@ class Board(dict):
 
                 ret.add(t)
 
-                to_check |= sea_graph.neighbors({t}) - checked
+                to_check |= sea_graph.neighbors(t) - checked
 
         return ret

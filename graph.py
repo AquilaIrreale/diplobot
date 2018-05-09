@@ -66,6 +66,9 @@ class Graph:
             self._graph_dict[v1] = {v2}
 
     def neighbors(self, vs):
+        if isinstance(vs, str):
+            vs = (vs,)
+
         ret = set()
 
         for v in vs:
@@ -74,6 +77,9 @@ class Graph:
         return ret - set(vs)
 
     def shared_neighbors(self, vs):
+        if isinstance(vs, str):
+            vs = (vs,)
+
         ret = set(self.vertices())
 
         for v in vs:
