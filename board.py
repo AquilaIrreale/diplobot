@@ -328,7 +328,9 @@ class Board(dict):
         return {strip_coast(x) for x in sea_graph.neighbors(t)}
 
     def reachable_via_c(self, t, excluded={}):
-        assert t in coast and self[t].occupied and self[t].kind == "A"
+        assert t in coast
+        assert self[t].occupied
+        assert self[t].kind == "A"
 
         to_check = full_graph.neighbors(t) & offshore
         checked = set()
