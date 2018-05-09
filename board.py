@@ -19,7 +19,6 @@
   ############################################################################
 
 
-from copy import copy
 from itertools import chain
 
 from insensitive_list import InsensitiveList
@@ -367,7 +366,7 @@ class Board(dict):
 
         to_check = sea_graph.neighbors(ts)
         checked = set()
-        ret = copy(ts)
+        ret = set(ts)
 
         while to_check:
             t = to_check.pop()
