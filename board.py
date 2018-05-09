@@ -159,6 +159,10 @@ def strip_coast(t):
     return t[:3]
 
 
+def get_coast(t):
+    return t[3:]
+
+
 full_graph = Graph()
 
 for t1, t2 in chain(sea_graph.edges(), land_graph.edges()):
@@ -379,3 +383,41 @@ class Board(dict):
                 to_check |= sea_graph.neighbors(t) - checked
 
         return ret
+
+    def needs_via_c(self, t1, t2):
+        assert self[t1].occupied
+
+        ts = {t1, t2}
+
+        if (not ts.issubset(coast)
+                or self[t1].kind != "F"
+                or t2 not in self.reachable(t1)):
+
+            return False
+
+        for t3 in full_graph.shared_neighbors(pair):
+            if (t3 in offshore
+                    and self[t3].occupied
+                    and self[t3].occupied != self[t1].occupied):
+
+                return True
+
+        return False
+
+    def needs_coast(self, t1, t2):
+        assert self[t1].occupied
+
+        return self[t1].kind == "F" and t2 in split_coasts
+
+    def infer_coast(self, t1, t2):
+        assert self[t1].occupied
+        assert self[t1].kind == "F"
+        assert t2 in split_coasts
+        assert t2 in self.reachable(t1)
+
+        neighs = sea_graph.neighbors(t1)
+
+        if ({t2 + "(NC)", t2 + "(SC)"}.issubset(neighs)):
+            return None
+
+        return next(get_coast(t) for t in neighs if strip_coast(t) == t2)
