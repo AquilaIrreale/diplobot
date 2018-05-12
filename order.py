@@ -72,7 +72,7 @@ class Order:
         else:
             raise ValueError
 
-        return tuple(x.lower() if isinstance(x, str) else x for x in ret)
+        return tuple(x.casefold() if isinstance(x, str) else x for x in ret)
 
     def __lt__(self, other):
         return self.key() < other.key()
@@ -454,7 +454,7 @@ class OrderBuilder:
         if self.more:
             hint = territories - hint
 
-        keyboard = make_grid(sorted(hint, key=str.upper))
+        keyboard = make_grid(sorted(hint, key=str.casefold))
 
         keyboard.append(["More..."])
 

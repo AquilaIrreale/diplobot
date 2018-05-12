@@ -156,7 +156,7 @@ def print_board(bot, game):
 def print_board_old(bot, game):
     message = "DEBUG: state of the board\n\n"
 
-    for t in sorted(occupied(game.board) | supp_centers, key=str.upper):
+    for t in sorted(occupied(game.board) | supp_centers, key=str.casefold):
         info = []
 
         if game.board[t].occupied:
@@ -991,7 +991,7 @@ def run_adjudication(bot, game):
 
         p.retreat_choices = [
             (t, game.board[t].kind, None)
-            for t in sorted(dislodged, key=str.lower)
+            for t in sorted(dislodged, key=str.casefold)
             if retreats[t]
         ]
 
@@ -1032,7 +1032,7 @@ def run_adjudication(bot, game):
 
     if retreats:
         message += ("<b>These units have been dislodged:</b>\n"
-                    + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
+                    + ", ".join(sorted(retreats.keys(), key=str.casefold)) + "\n\n"
                     + "Awaiting retreat orders")
 
     send_with_retry(bot, game.chat_id, message, parse_mode=ParseMode.HTML)
@@ -1102,7 +1102,7 @@ def show_retreats_prompt(bot, game, player):
 
         return
 
-    keyboard = make_grid(sorted(player.retreats[t], key=str.lower))
+    keyboard = make_grid(sorted(player.retreats[t], key=str.casefold))
 
     keyboard.append(["Disband"])
 
@@ -1204,17 +1204,17 @@ def execute_retreats(bot, game):
 
     bad_retreats = sorted(
         filter(lambda r: r[2] in dupes, retreats),
-        key=lambda r: (r[2].upper(), r[0].upper()))
+        key=lambda r: (r[2].casefold(), r[0].casefold()))
 
     good_retreats = sorted(
         filter(lambda r: r[2] not in dupes, retreats),
-        key=lambda r: (r[0].upper(), r[2].upper()))
+        key=lambda r: (r[0].casefold(), r[2].casefold()))
 
     message = ""
 
     if destroyed:
         message += ("These units couldn't retreat and have been disbanded\n\n"
-                    + ", ".join(sorted(destroyed, key=str.lower)) + "\n")
+                    + ", ".join(sorted(destroyed, key=str.casefold)) + "\n")
 
     if good_retreats:
         message += "\nThe following retreat orders have been carried out\n"
@@ -1282,7 +1282,7 @@ def auto_disband(board, nation, n):
         (
             distance_from_home(t, nation),
             0 if board[t].kind == "F" else 1,
-            t.upper(),
+            t.casefold(),
             t
         )
 
@@ -1403,7 +1403,7 @@ def show_disband_prompt(bot, game, player):
     else:
         keyboard = make_grid(sorted(
             player.units_options.difference(player.units_choices),
-            key=str.lower))
+            key=str.casefold))
 
         if not player.units_choices:
             message = "Which unit should be disbanded{}?".format(
@@ -1463,7 +1463,7 @@ def show_build_prompt(bot, game, player):
     else:
         keyboard = make_grid(sorted(
             player.units_options - {t for t, k, c in player.units_choices},
-            key=str.lower))
+            key=str.casefold))
 
         keyboard.append(["Done"])
 
