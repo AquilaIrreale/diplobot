@@ -103,14 +103,7 @@ class Graph:
         return distances
 
     def __str__(self):
-        res = "Vertices: "
-
-        for k in self._graph_dict:
-            res += str(k) + " "
-
-        res += "\nEdges: "
-
-        for edge in self.edges():
-            res += str(edge) + " "
-
-        return res
+        return "Vertices: {}\nEdges: {}".format(
+            ", ".join(sorted(self._graph_dict.keys())),
+            ", ".join(sorted("({}, {})".format(*sorted(e)) for e in self.edges()))
+        )
