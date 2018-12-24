@@ -102,6 +102,20 @@ class Graph:
 
         return distances
 
+    def components(self):
+        vertices = self.vertices()
+
+        while vertices:
+            component = {vertices.pop()}
+            neighs = self.neighbors(component)
+
+            while neighs:
+                vertices -= neighs
+                component |= neighs
+                neighs = self.neighbors(component)
+
+            yield component
+
     def __str__(self):
         return "Vertices: {}\nEdges: {}".format(
             ", ".join(sorted(self._graph_dict.keys())),
