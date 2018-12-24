@@ -56,134 +56,30 @@ from graph import Graph
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 nations = ["AUSTRIA", "ENGLAND", "FRANCE", "GERMANY", "ITALY", "RUSSIA", "TURKEY"]
 
-sea_graph = Graph({
-    "Alb" : {"ADR", "Gre", "ION", "Tri"},
-    "Ank" : {"Arm", "BLA", "Con"},
-    "Apu" : {"ADR", "ION", "Nap", "Ven"},
-    "Arm" : {"Ank", "BLA", "Sev"},
-    "Bel" : {"ENG", "Hol", "NTH", "Pic"},
-    "Ber" : {"BAL", "Kie", "Pru"},
-    "Bre" : {"ENG", "Gas", "MAO", "Pic"},
-    "Bul(NC)" : {"BLA", "Con", "Rum"},
-    "Bul(SC)" : {"AEG", "Con", "Gre"},
-    "Cly" : {"Edi", "Lvp", "NAO", "NWG"},
-    "Con" : {"AEG", "Ank", "BLA", "Bul(NC)", "Bul(SC)", "Smy"},
-    "Den" : {"BAL", "HEL", "Kie", "NTH", "SKA", "Swe"},
-    "Edi" : {"Cly", "NTH", "NWG", "Yor"},
-    "Fin" : {"BOT", "StP(SC)", "Swe"},
-    "Gas" : {"Bre", "MAO", "Spa(NC)"},
-    "Gre" : {"AEG", "Alb", "Bul(SC)", "ION"},
-    "Hol" : {"Bel", "HEL", "Kie", "NTH"},
-    "Kie" : {"BAL", "Ber", "Den", "HEL", "Hol"},
-    "Lon" : {"ENG", "NTH", "Wal", "Yor"},
-    "Lvn" : {"BAL", "BOT", "Pru", "StP(SC)"},
-    "Lvp" : {"Cly", "IRI", "NAO", "Wal"},
-    "Mar" : {"LYO", "Pie", "Spa(SC)"},
-    "NAf" : {"MAO", "Tun", "WES"},
-    "Nap" : {"Apu", "ION", "Rom", "TYS"},
-    "Nwy" : {"BAR", "NTH", "NWG", "SKA", "StP(NC)", "Swe"},
-    "Pic" : {"Bel", "Bre", "ENG"},
-    "Pie" : {"LYO", "Mar", "Tus"},
-    "Por" : {"MAO", "Spa(NC)", "Spa(SC)"},
-    "Pru" : {"BAL", "Ber", "Lvn"},
-    "Rom" : {"Nap", "Tus", "TYS"},
-    "Rum" : {"BLA", "Bul(NC)", "Sev"},
-    "Sev" : {"Arm", "BLA", "Rum"},
-    "Smy" : {"AEG", "Con", "EAS", "Syr"},
-    "Spa(NC)" : {"Gas", "MAO", "Por"},
-    "Spa(SC)" : {"LYO", "MAO", "Mar", "Por", "WES"},
-    "StP(NC)" : {"BAR", "Nwy"},
-    "StP(SC)" : {"BOT", "Fin", "Lvn"},
-    "Swe" : {"BAL", "BOT", "Den", "Fin", "Nwy", "SKA"},
-    "Syr" : {"EAS", "Smy"},
-    "Tri" : {"ADR", "Alb", "Ven"},
-    "Tun" : {"ION", "NAf", "TYS", "WES"},
-    "Tus" : {"LYO", "Pie", "Rom", "TYS"},
-    "Ven" : {"ADR", "Apu", "Tri"},
-    "Wal" : {"ENG", "IRI", "Lon", "Lvp"},
-    "Yor" : {"Edi", "Lon", "NTH"},
-    "AEG" : {"Bul(SC)", "Con", "EAS", "Gre", "ION", "Smy"},
-    "ADR" : {"Alb", "Apu", "ION", "Tri", "Ven"},
-    "BAL" : {"Ber", "BOT", "Den", "Kie", "Lvn", "Pru", "Swe"},
-    "BAR" : {"NWG", "Nwy", "StP(NC)"},
-    "BLA" : {"Ank", "Arm", "Bul(NC)", "Con", "Rum", "Sev"},
-    "BOT" : {"BAL", "Fin", "Lvn", "StP(SC)", "Swe"},
-    "EAS" : {"AEG", "ION", "Smy", "Syr"},
-    "ENG" : {"Bel", "Bre", "IRI", "Lon", "MAO", "NTH", "Pic", "Wal"},
-    "HEL" : {"Den", "Hol", "Kie", "NTH"},
-    "ION" : {"ADR", "AEG", "Alb", "Apu", "EAS", "Gre", "Nap", "Tun", "TYS"},
-    "IRI" : {"ENG", "Lvp", "MAO", "NAO", "Wal"},
-    "LYO" : {"Mar", "Pie", "Spa(SC)", "Tus", "TYS", "WES"},
-    "MAO" : {"Bre", "ENG", "Gas", "IRI", "NAf", "NAO", "Por", "Spa(NC)", "Spa(SC)", "WES"},
-    "NAO" : {"Cly", "IRI", "Lvp", "MAO", "NWG"},
-    "NTH" : {"Bel", "Den", "Edi", "ENG", "HEL", "Hol", "Lon", "NWG", "Nwy", "SKA", "Yor"},
-    "NWG" : {"BAR", "Cly", "Edi", "NAO", "NTH", "Nwy"},
-    "SKA" : {"Den", "NTH", "Nwy", "Swe"},
-    "TYS" : {"ION", "LYO", "Nap", "Rom", "Tun", "Tus", "WES"},
-    "WES" : {"LYO", "MAO", "NAf", "Spa(SC)", "Tun", "TYS"}
-})
 
-land_graph = Graph({
-    "Alb" : {"Gre", "Ser", "Tri"},
-    "Ank" : {"Arm", "Con", "Smy"},
-    "Apu" : {"Nap", "Rom", "Ven"},
-    "Arm" : {"Ank", "Sev", "Smy", "Syr"},
-    "Bel" : {"Bur", "Hol", "Pic", "Ruh"},
-    "Ber" : {"Kie", "Mun", "Pru", "Sil"},
-    "Boh" : {"Gal", "Mun", "Sil", "Tyr", "Vie"},
-    "Bre" : {"Gas", "Par", "Pic"},
-    "Bud" : {"Gal", "Rum", "Ser", "Tri", "Vie"},
-    "Bul" : {"Con", "Gre", "Rum", "Ser"},
-    "Bur" : {"Bel", "Gas", "Mar", "Mun", "Par", "Pic", "Ruh"},
-    "Cly" : {"Edi", "Lvp"},
-    "Con" : {"Ank", "Bul", "Smy"},
-    "Den" : {"Kie", "Swe"},
-    "Edi" : {"Cly", "Lvp", "Yor"},
-    "Fin" : {"Nwy", "StP", "Swe"},
-    "Gal" : {"Boh", "Bud", "Rum", "Sil", "Ukr", "Vie", "War"},
-    "Gas" : {"Bre", "Bur", "Mar", "Par", "Spa"},
-    "Gre" : {"Alb", "Bul", "Ser"},
-    "Hol" : {"Bel", "Kie", "Ruh"},
-    "Kie" : {"Ber", "Den", "Hol", "Mun", "Ruh"},
-    "Lon" : {"Wal", "Yor"},
-    "Lvn" : {"Mos", "Pru", "StP", "War"},
-    "Lvp" : {"Cly", "Edi", "Wal", "Yor"},
-    "Mar" : {"Bur", "Gas", "Pie", "Spa"},
-    "Mos" : {"Lvn", "Sev", "StP", "Ukr", "War"},
-    "Mun" : {"Ber", "Boh", "Bur", "Kie", "Ruh", "Sil", "Tyr"},
-    "NAf" : {"Tun"},
-    "Nap" : {"Apu", "Rom"},
-    "Nwy" : {"Fin", "StP", "Swe"},
-    "Par" : {"Bre", "Bur", "Gas", "Pic"},
-    "Pic" : {"Bel", "Bre", "Bur", "Par"},
-    "Pie" : {"Mar", "Tus", "Tyr", "Ven"},
-    "Por" : {"Spa"},
-    "Pru" : {"Ber", "Lvn", "Sil", "War"},
-    "Rom" : {"Apu", "Nap", "Tus", "Ven"},
-    "Ruh" : {"Bel", "Bur", "Hol", "Kie", "Mun"},
-    "Rum" : {"Bud", "Bul", "Gal", "Ser", "Sev", "Ukr"},
-    "Ser" : {"Alb", "Bud", "Bul", "Gre", "Rum", "Tri"},
-    "Sev" : {"Arm", "Mos", "Rum", "Ukr"},
-    "Sil" : {"Ber", "Boh", "Gal", "Mun", "Pru", "War"},
-    "Smy" : {"Ank", "Arm", "Con", "Syr"},
-    "Spa" : {"Gas", "Mar", "Por"},
-    "StP" : {"Fin", "Lvn", "Mos", "Nwy"},
-    "Swe" : {"Den", "Fin", "Nwy"},
-    "Syr" : {"Arm", "Smy"},
-    "Tri" : {"Alb", "Bud", "Ser", "Tyr", "Ven", "Vie"},
-    "Tun" : {"NAf"},
-    "Tus" : {"Pie", "Rom", "Ven"},
-    "Tyr" : {"Boh", "Mun", "Pie", "Tri", "Ven", "Vie"},
-    "Ukr" : {"Gal", "Mos", "Rum", "Sev", "War"},
-    "Ven" : {"Apu", "Pie", "Rom", "Tri", "Tus", "Tyr"},
-    "Vie" : {"Boh", "Bud", "Gal", "Tri", "Tyr"},
-    "Wal" : {"Lon", "Lvp", "Yor"},
-    "War" : {"Gal", "Lvn", "Mos", "Pru", "Sil", "Ukr"},
-    "Yor" : {"Edi", "Lon", "Lvp", "Wal"}
-})
+def load_graph(filename):
+
+    graph_dict = {}
+
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+
+            if not line:
+                continue
+
+            t1, t2s = tuple(line.split(":"))
+            t1 = t1.strip()
+
+            graph_dict[t1] = set(s.strip() for s in t2s.split(" ") if s)
+
+    return Graph(graph_dict)
+
+
+sea_graph = load_graph("seagraph")
+land_graph = load_graph("landgraph")
 
 
 def strip_coast(t):

@@ -1,0 +1,56 @@
+Alb: Gre Ser Tri
+Ank: Arm Con Smy
+Apu: Nap Rom Ven
+Arm: Ank Sev Smy Syr
+Bel: Bur Hol Pic Ruh
+Ber: Kie Mun Pru Sil
+Boh: Gal Mun Sil Tyr Vie
+Bre: Gas Par Pic
+Bud: Gal Rum Ser Tri Vie
+Bul: Con Gre Rum Ser
+Bur: Bel Gas Mar Mun Par Pic Ruh
+Cly: Edi Lvp
+Con: Ank Bul Smy
+Den: Kie Swe
+Edi: Cly Lvp Yor
+Fin: Nwy StP Swe
+Gal: Boh Bud Rum Sil Ukr Vie War
+Gas: Bre Bur Mar Par Spa
+Gre: Alb Bul Ser
+Hol: Bel Kie Ruh
+Kie: Ber Den Hol Mun Ruh
+Lon: Wal Yor
+Lvn: Mos Pru StP War
+Lvp: Cly Edi Wal Yor
+Mar: Bur Gas Pie Spa
+Mos: Lvn Sev StP Ukr War
+Mun: Ber Boh Bur Kie Ruh Sil Tyr
+NAf: Tun
+Nap: Apu Rom
+Nwy: Fin StP Swe
+Par: Bre Bur Gas Pic
+Pic: Bel Bre Bur Par
+Pie: Mar Tus Tyr Ven
+Por: Spa
+Pru: Ber Lvn Sil War
+Rom: Apu Nap Tus Ven
+Ruh: Bel Bur Hol Kie Mun
+Rum: Bud Bul Gal Ser Sev Ukr
+Ser: Alb Bud Bul Gre Rum Tri
+Sev: Arm Mos Rum Ukr
+Sil: Ber Boh Gal Mun Pru War
+Smy: Ank Arm Con Syr
+Spa: Gas Mar Por
+StP: Fin Lvn Mos Nwy
+Swe: Den Fin Nwy
+Syr: Arm Smy
+Tri: Alb Bud Ser Tyr Ven Vie
+Tun: NAf
+Tus: Pie Rom Ven
+Tyr: Boh Mun Pie Tri Ven Vie
+Ukr: Gal Mos Rum Sev War
+Ven: Apu Pie Rom Tri Tus Tyr
+Vie: Boh Bud Gal Tri Tyr
+Wal: Lon Lvp Yor
+War: Gal Lvn Mos Pru Sil Ukr
+Yor: Edi Lon Lvp Wal
