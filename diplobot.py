@@ -97,25 +97,19 @@ territories = {
 
 terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}, key=str.upper))
 
-offshore = {
-    "AEG", "ADR", "BAL", "BAR", "BLA",
-    "BOT", "EAS", "ENG", "HEL", "ION",
-    "IRI", "LYO", "MAO", "NAO", "NTH",
-    "NWG", "SKA", "TYS", "WES"
-}
+offshore = {t for t in sea_graph.vertices() if strip_coast(t) not in land_graph.vertices()}
+coast = {strip_coast(t) for t in sea_graph.vertices() - offshore}
 
-coast = set(map(strip_coast, sea_graph.vertices() - offshore))
+offshore_graph = Graph({
+    t1: {t2 for t2 in t2s if t2 in offshore}
+    for t1, t2s in sea_graph.dict.items()
+    if t1 in offshore
+})
 
-bla_coast = {strip_coast(t) for t in sea_graph.neighbors({"BLA"})}
-bal_coast = {strip_coast(t) for t in sea_graph.neighbors({"BAL", "BOT"})}
-main_coast = {
-    strip_coast(t)
-    for t in sea_graph.neighbors(offshore - {"BLA", "BAL", "BOT"})
-}
+seas = tuple(offshore_graph.components())
+coasts = tuple(sea_graph.neighbors(sea) for sea in seas)
 
-coasts = (bla_coast, bal_coast, main_coast)
-
-split_coasts = {"Bul", "Spa", "StP"}
+split_coasts = {t for t in coast if tuple(map(strip_coast, sea_graph.vertices())).count(t) > 1}
 
 supp_centers = {
     "Ank", "Bel", "Ber", "Bre", "Bud",
