@@ -53,9 +53,6 @@ from insensitive_list import InsensitiveList
 from graph import Graph
 
 
-nations = ["AUSTRIA", "ENGLAND", "FRANCE", "GERMANY", "ITALY", "RUSSIA", "TURKEY"]
-
-
 def load_graph(filename):
 
     graph_dict = {}
@@ -108,25 +105,57 @@ coasts = tuple(sea_graph.neighbors(sea) for sea in seas)
 
 split_coasts = {t for t in coast if tuple(map(strip_coast, sea_graph.vertices())).count(t) > 1}
 
-supp_centers = {
-    "Ank", "Bel", "Ber", "Bre", "Bud",
-    "Bul", "Con", "Den", "Edi", "Gre",
-    "Hol", "Kie", "Lon", "Lvp", "Mar",
-    "Mos", "Mun", "Nap", "Nwy", "Par",
-    "Por", "Rom", "Rum", "Ser", "Sev",
-    "Smy", "Spa", "StP", "Swe", "Tri",
-    "Tun", "Ven", "Vie", "War"
-}
+supp_centers = set()
+home_centers = {}
 
-home_centers = {
-    "AUSTRIA" : {"Bud", "Tri", "Vie"},
-    "ENGLAND" : {"Edi", "Lon", "Lvp"},
-    "FRANCE"  : {"Bre", "Mar", "Par"},
-    "GERMANY" : {"Ber", "Kie", "Mun"},
-    "ITALY"   : {"Nap", "Rom", "Ven"},
-    "RUSSIA"  : {"Mos", "Sev", "StP", "War"},
-    "TURKEY"  : {"Ank", "Con", "Smy"}
-}
+with open("supply_centers") as f:
+    nation = None
+
+    for line in f:
+        if not line.strip():
+            continue
+
+        try:
+            nation, rhs = tuple(map(str.strip, line.split(":")))
+
+        except ValueError as e:
+            if nation is None:
+                raise e
+
+            rhs = line
+
+        centers = set(filter(None, (t.strip() for t in rhs.split(" "))))
+        supp_centers |= centers
+
+        if nation:
+            try:
+                home_centers[nation].update(centers)
+
+            except KeyError:
+                home_centers[nation] = centers
+
+nations = sorted(n for n in home_centers)
+
+default_kind = {}
+default_coast = {}
+
+with open("default_units") as f:
+    for line in f:
+        if not line.strip():
+            continue
+
+        words = tuple(filter(None, (s.strip() for s in line.split(" "))))
+
+        try:
+            t, kind, coast = words
+
+        except ValueError:
+            t, kind = words
+            coast = None
+
+        default_kind[t] = kind
+        default_coast[t] = coast
+
 
 def infer_kind(t):
     return ("F" if t in offshore else
@@ -146,83 +175,21 @@ class Territory:
 
 
 def make_board():
-    return {
-        "Alb": Territory(),
-        "Ank": Territory(owner="TURKEY",  occupied="TURKEY",  kind="F"),
-        "Apu": Territory(),
-        "Arm": Territory(),
-        "Bel": Territory(),
-        "Ber": Territory(owner="GERMANY", occupied="GERMANY", kind="A"),
-        "Boh": Territory(),
-        "Bre": Territory(owner="FRANCE",  occupied="FRANCE",  kind="F"),
-        "Bud": Territory(owner="AUSTRIA", occupied="AUSTRIA", kind="A"),
-        "Bul": Territory(),
-        "Bur": Territory(),
-        "Cly": Territory(),
-        "Con": Territory(owner="TURKEY",  occupied="TURKEY",  kind="A"),
-        "Den": Territory(),
-        "Edi": Territory(owner="ENGLAND", occupied="ENGLAND", kind="F"),
-        "Fin": Territory(),
-        "Gal": Territory(),
-        "Gas": Territory(),
-        "Gre": Territory(),
-        "Hol": Territory(),
-        "Kie": Territory(owner="GERMANY", occupied="GERMANY", kind="F"),
-        "Lon": Territory(owner="ENGLAND", occupied="ENGLAND", kind="F"),
-        "Lvn": Territory(),
-        "Lvp": Territory(owner="ENGLAND", occupied="ENGLAND", kind="A"),
-        "Mar": Territory(owner="FRANCE",  occupied="FRANCE",  kind="A"),
-        "Mos": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="A"),
-        "Mun": Territory(owner="GERMANY", occupied="GERMANY", kind="A"),
-        "NAf": Territory(),
-        "Nap": Territory(owner="ITALY",   occupied="ITALY",   kind="F"),
-        "Nwy": Territory(),
-        "Par": Territory(owner="FRANCE",  occupied="FRANCE",  kind="A"),
-        "Pic": Territory(),
-        "Pie": Territory(),
-        "Por": Territory(),
-        "Pru": Territory(),
-        "Rom": Territory(owner="ITALY",   occupied="ITALY",   kind="A"),
-        "Ruh": Territory(),
-        "Rum": Territory(),
-        "Ser": Territory(),
-        "Sev": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="F"),
-        "Sil": Territory(),
-        "Smy": Territory(owner="TURKEY",  occupied="TURKEY",  kind="A"),
-        "Spa": Territory(),
-        "StP": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="F",  coast="(SC)"),
-        "Swe": Territory(),
-        "Syr": Territory(),
-        "Tri": Territory(owner="AUSTRIA", occupied="AUSTRIA", kind="F"),
-        "Tun": Territory(),
-        "Tus": Territory(),
-        "Tyr": Territory(),
-        "Ukr": Territory(),
-        "Ven": Territory(owner="ITALY",   occupied="ITALY",   kind="A"),
-        "Vie": Territory(owner="AUSTRIA", occupied="AUSTRIA", kind="A"),
-        "Wal": Territory(),
-        "War": Territory(owner="RUSSIA",  occupied="RUSSIA",  kind="A"),
-        "Yor": Territory(),
-        "AEG": Territory(),
-        "ADR": Territory(),
-        "BAL": Territory(),
-        "BAR": Territory(),
-        "BLA": Territory(),
-        "BOT": Territory(),
-        "EAS": Territory(),
-        "ENG": Territory(),
-        "HEL": Territory(),
-        "ION": Territory(),
-        "IRI": Territory(),
-        "LYO": Territory(),
-        "MAO": Territory(),
-        "NAO": Territory(),
-        "NTH": Territory(),
-        "NWG": Territory(),
-        "SKA": Territory(),
-        "TYS": Territory(),
-        "WES": Territory()
-    }
+    ret = {}
+
+    for t in territories:
+        for n in nations:
+            if t in home_centers[n]:
+                ret[t] = Territory(owner=n,
+                                   occupied=n,
+                                   kind=default_kind[t],
+                                   coast=default_coast[t])
+                break
+
+        else:
+            ret[t] = Territory()
+
+    return ret
 
 
 def occupied(board, nation=None):
