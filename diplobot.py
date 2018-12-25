@@ -70,7 +70,7 @@ def load_graph(filename):
             t1, t2s = tuple(line.split(":"))
             t1 = t1.strip()
 
-            graph_dict[t1] = set(s.strip() for s in t2s.split(" ") if s)
+            graph_dict[t1] = set(filter(None, (s.strip() for s in t2s.split(" "))))
 
     return Graph(graph_dict)
 
