@@ -53,9 +53,6 @@ from insensitive_list import InsensitiveList
 from graph import Graph
 
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 nations = ["AUSTRIA", "ENGLAND", "FRANCE", "GERMANY", "ITALY", "RUSSIA", "TURKEY"]
 
 
@@ -2403,6 +2400,10 @@ def generic_private_msg_handler(bot, update):
 
             else:
                 build_msg_handler(bot, update, game, player)
+
+
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def error_handler(bot, update, error):
