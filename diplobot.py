@@ -140,6 +140,10 @@ class Territory:
         self.kind = kind
         self.coast = coast
 
+    def __repr__(self):
+        return "Territory(owner={}, occupied={}, kind={}, coast={})".format(
+            self.owner, self.occupied, self.kind, self.coast)
+
 
 def make_board():
     return {
