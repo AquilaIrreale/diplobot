@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
   ############################################################################
   # Diplobot - play Diplomacy through Telegram                               #
@@ -18,18 +17,15 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
-class InsensitiveList(list):
-    def __init__(self, iterable):
-        super().__init__(iterable)
+def make_grid(l):
+    r3 = len(l) % 3
+    r4 = len(l) % 4
 
-    def __contains__(self, item):
-        return item.upper() in (x.upper() for x in self)
+    if r4 == 0:
+        cols = 4
+    elif r3 == 0:
+        cols = 3
+    else:
+        cols = 3 if r3 > r4 else 4
 
-    def match_case(self, item):
-        item_upper = item.upper()
-
-        for elem, upper in zip(self, (x.upper() for x in self)):
-            if upper == item_upper:
-                return elem
-
-        raise KeyError
+    return [l[i:i+cols] for i in range(0, len(l), cols)]

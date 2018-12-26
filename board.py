@@ -17,10 +17,11 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
+from copy import copy
 from itertools import chain
 
-from insensitive_list import InsensitiveList
 from graph import Graph
+from insensitive_list import InsensitiveList
 
 
 def load_graph(filename):

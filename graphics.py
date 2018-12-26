@@ -18,11 +18,14 @@
   ############################################################################
 
 import re
+import os
+import tempfile
+import subprocess
 import xml.etree.ElementTree as ET
 
 from copy import deepcopy
 
-from board import occupied, owned
+from board import occupied, owned, supp_centers, split_coasts
 
 
 def set_style(e, key, value):
