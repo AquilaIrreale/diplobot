@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
   ############################################################################
   # Diplobot - play Diplomacy through Telegram                               #
