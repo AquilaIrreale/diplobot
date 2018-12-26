@@ -17,6 +17,7 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
+
 def make_grid(l):
     r3 = len(l) % 3
     r4 = len(l) % 4

@@ -18,6 +18,7 @@
   # along with this program.  If not, see <http://www.gnu.org/licenses/>.    #
   ############################################################################
 
+
 class InsensitiveList(list):
     def __init__(self, iterable):
         super().__init__(iterable)
