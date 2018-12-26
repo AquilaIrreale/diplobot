@@ -72,8 +72,8 @@ def load_graph(filename):
     return Graph(graph_dict)
 
 
-sea_graph = load_graph("seagraph")
-land_graph = load_graph("landgraph")
+sea_graph = load_graph("sea_graph")
+land_graph = load_graph("land_graph")
 
 
 def strip_coast(t):
