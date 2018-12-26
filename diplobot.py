@@ -28,11 +28,8 @@ import logging
 import tempfile
 import subprocess
 
-from copy import copy, deepcopy
+from copy import copy
 from operator import attrgetter, itemgetter
-from itertools import chain
-
-import xml.etree.ElementTree as ET
 
 from telegram import (InlineKeyboardButton as IKB,
                       InlineKeyboardMarkup as IKM,
@@ -49,257 +46,20 @@ from telegram.ext import (Updater,
 
 from telegram.error import BadRequest, TimedOut
 
-from insensitive_list import InsensitiveList
-from graph import Graph
-
-
-def load_graph(filename):
-
-    graph_dict = {}
-
-    with open(filename) as f:
-        for line in f:
-            line = line.strip()
-
-            if not line:
-                continue
-
-            t1, t2s = tuple(line.split(":"))
-            t1 = t1.strip()
-
-            graph_dict[t1] = set(filter(None, (s.strip() for s in t2s.split(" "))))
-
-    return Graph(graph_dict)
-
-
-sea_graph = load_graph("sea_graph")
-land_graph = load_graph("land_graph")
-
-
-def strip_coast(t):
-    return t[:3]
-
-
-full_graph = Graph()
-
-for t1, t2 in chain(sea_graph.edges(), land_graph.edges()):
-    full_graph.add_edge((strip_coast(t1), strip_coast(t2)))
-
-territories = {
-    strip_coast(t) for t in chain(land_graph.vertices(), sea_graph.vertices())
-}
-
-terr_names = InsensitiveList(sorted({strip_coast(t) for t in territories}, key=str.upper))
-
-offshore = {t for t in sea_graph.vertices() if strip_coast(t) not in land_graph.vertices()}
-coast = {strip_coast(t) for t in sea_graph.vertices() - offshore}
-
-offshore_graph = Graph({
-    t1: {t2 for t2 in t2s if t2 in offshore}
-    for t1, t2s in sea_graph.dict.items()
-    if t1 in offshore
-})
-
-seas = tuple(offshore_graph.components())
-coasts = tuple(sea_graph.neighbors(sea) for sea in seas)
-
-split_coasts = {t for t in coast if tuple(map(strip_coast, sea_graph.vertices())).count(t) > 1}
-
-supp_centers = set()
-home_centers = {}
-
-with open("supply_centers") as f:
-    nation = None
-
-    for line in f:
-        if not line.strip():
-            continue
-
-        try:
-            nation, rhs = tuple(map(str.strip, line.split(":")))
-
-        except ValueError as e:
-            if nation is None:
-                raise e
-
-            rhs = line
-
-        centers = set(filter(None, (t.strip() for t in rhs.split(" "))))
-        supp_centers |= centers
-
-        if nation:
-            try:
-                home_centers[nation].update(centers)
-
-            except KeyError:
-                home_centers[nation] = centers
-
-nations = sorted(n for n in home_centers)
-
-default_kind = {}
-default_coast = {}
-
-with open("default_units") as f:
-    for line in f:
-        if not line.strip():
-            continue
-
-        words = tuple(filter(None, (s.strip() for s in line.split(" "))))
-
-        try:
-            t, kind, coast = words
-
-        except ValueError:
-            t, kind = words
-            coast = None
-
-        default_kind[t] = kind
-        default_coast[t] = coast
-
-
-def infer_kind(t):
-    return ("F" if t in offshore else
-            "A" if t not in coast else None)
-
-
-class Territory:
-    def __init__(self, owner=None, occupied=None, kind=None, coast=None):
-        self.owner = owner
-        self.occupied = occupied
-        self.kind = kind
-        self.coast = coast
-
-    def __repr__(self):
-        return "Territory(owner={}, occupied={}, kind={}, coast={})".format(
-            self.owner, self.occupied, self.kind, self.coast)
-
-
-def make_board():
-    ret = {}
-
-    for t in territories:
-        for n in nations:
-            if t in home_centers[n]:
-                ret[t] = Territory(owner=n,
-                                   occupied=n,
-                                   kind=default_kind[t],
-                                   coast=default_coast[t])
-                break
-
-        else:
-            ret[t] = Territory()
-
-    return ret
-
-
-def occupied(board, nation=None):
-    if nation:
-        return {t for t in territories if board[t].occupied == nation}
-    else:
-        return {t for t in territories if board[t].occupied}
-
-
-def owned(board, nation=None):
-    if nation:
-        return {t for t in supp_centers if board[t].owner == nation}
-    else:
-        return {t for t in supp_centers if board[t].owner}
-
-
-def set_style(e, key, value):
-    style = e.get("style", default="")
-
-    if re.match(r"\b{}:".format(key), style):
-        style = re.sub(r"\b{}:[^;]*".format(key), "{}:{}".format(key, value), style)
-
-    else:
-        if style:
-            style += ';'
-
-        style += "{}:{}".format(key, value)
-
-    e.set("style", style)
-
-
-def del_style(e, key):
-    style = e.get("style", default="")
-    style = re.sub(r"\b{}:[^;]*;?".format(key), "", style)
-    e.set("style", style)
-
-
-board_svg = ET.parse("board.svg")
-
-piece_re = re.compile(r"^\w{3}_[AF](_(NC|SC))?$")
-
-for e in board_svg.getroot().iter():
-    if piece_re.match(e.get("id", default="")):
-        set_style(e, "display", "none")
-
-
-nation_colors = {
-    "AUSTRIA" : "#FE3A3A",
-    "ENGLAND" : "#163BC7",
-    "FRANCE"  : "#00E9FF",
-    "GERMANY" : "#878787",
-    "ITALY"   : "#00FF00",
-    "RUSSIA"  : "#BE68D6",
-    "TURKEY"  : "#F5F500"
-}
+from board import *
+from graphics import render_board
 
 
 def print_board(bot, game):
     bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
 
-    board_copy = deepcopy(board_svg)
-    root = board_copy.getroot()
+    board_png = render_board(game.board)
 
-    for t in owned(game.board) & supp_centers:
-        e = root.find('.//*[@id="{}_dot"]'.format(t))
-        color = nation_colors[game.board[t].owner]
-        set_style(e, "fill", color)
+    with open(board_png, "b") as fd:
+        bot.send_photo(
+            game.chat_id, fd, "State of the board ({})".format(game.date()))
 
-    for t in occupied(game.board):
-        k = game.board[t].kind
-        c = game.board[t].coast
-
-        piece_id = "{}_{}".format(t, k)
-
-        if t in split_coasts and k == "F":
-            piece_id += "_NC" if c == "(NC)" else "_SC"
-
-        e = root.find('.//*[@id="{}"]/*'.format(piece_id))
-        color = nation_colors[game.board[t].occupied]
-        set_style(e, "fill", color)
-
-        e = root.find('.//*[@id="{}"]'.format(piece_id))
-        del_style(e, "display")
-
-    svg_fd, svg_fn = tempfile.mkstemp()
-    svg = os.fdopen(svg_fd, "wb")
-    board_copy.write(svg)
-    svg.close()
-
-    png_fd, png_fn = tempfile.mkstemp()
-    os.close(png_fd)
-
-    subprocess.run(
-        [
-            "inkscape",
-            "--export-png=" + png_fn,
-            "--export-width=1280",
-            "--export-height=1175",
-            svg_fn
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL)
-
-    png = open(png_fn, "rb")
-
-    bot.send_photo(
-        game.chat_id, png, "State of the board ({})".format(game.date()))
-
-    os.unlink(png_fn)
-    os.unlink(svg_fn)
+    os.unlink(board_png)
 
 
 def print_board_old(bot, game):
@@ -320,71 +80,6 @@ def print_board_old(bot, game):
         message += t + ": " + ", ".join(info) + "\n"
 
     send_with_retry(bot, game.chat_id, message)
-
-
-def reachables(t, board):
-    if not board[t].occupied:
-        return set()
-
-    if board[t].kind == "F":
-        g = sea_graph
-
-        if t in split_coasts:
-            t += board[t].coast
-
-    else:
-        g = land_graph
-
-    return {strip_coast(x) for x in g.neighbors({t})}
-
-
-def reachables_via_c(t, board, excluded={}):
-    if t not in coast or not board[t].occupied or board[t].kind != "A":
-        return set()
-
-    checked = set()
-    to_check = full_graph.neighbors({t}) & offshore
-    ret = set()
-
-    while to_check:
-        t1 = next(iter(to_check))
-        to_check.discard(t1)
-        checked.add(t1)
-
-        if not board[t1].occupied or t1 in excluded:
-            continue
-
-        for t2 in sea_graph.neighbors({t1}):
-            t2 = strip_coast(t2)
-
-            if t2 in coast:
-                ret.add(t2)
-
-            elif t2 not in checked:
-                to_check.add(t2)
-
-    ret.discard(t)
-
-    return ret
-
-
-def contiguous_fleets(ts, board):
-    nations = {board[t].occupied for t in ts if board[t].occupied}
-    to_check = sea_graph.neighbors(ts)
-    ret = copy(ts)
-
-    while to_check:
-        t = to_check.pop()
-
-        if (t in offshore
-                and board[t].occupied
-                and board[t].occupied not in nations):
-
-            ret.add(t)
-
-            to_check |= sea_graph.neighbors({t}) - ret
-
-    return ret
 
 
 class Order:
