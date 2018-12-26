@@ -1,0 +1,6 @@
+* Modularize
+* Modularize more
+* Implement tests on modularized components
+* Switch to generators wherever possible
+* Make case insensitive comparisons consistent
+* Implement timeout
