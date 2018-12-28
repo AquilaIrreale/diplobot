@@ -19,23 +19,21 @@
 
 
 from copy import copy
+from functools import total_ordering
 
 from telegram import ReplyKeyboardMarkup as RKM
 
 from utils import make_grid
 from board import (coasts,
-                   contiguous_fleets,
                    land_graph,
-                   occupied,
                    offshore,
-                   reachables,
-                   reachables_via_c,
                    sea_graph,
                    split_coasts,
                    terr_names,
-                   territories,
                    territories)
 
+
+@total_ordering
 class Order:
     def __init__(self):
         self.kind = None
@@ -80,10 +78,13 @@ class Order:
         else:
             raise ValueError
 
-        return tuple(x.lower() if isinstance(x, str) else x for x in ret)
+        return tuple(x.casefold() if isinstance(x, str) else x for x in ret)
 
     def __lt__(self, other):
         return self.key() < other.key()
+
+    def __eq__(self, other):
+        return self.key() == other.key()
 
 
 class BuilderError(Exception):
@@ -130,22 +131,6 @@ class OrderBuilder:
         except StopIteration:
             return None
 
-    def needs_via_c(self):
-        t1 = self.terr
-        t2 = self.building.targ
-
-        if self.board[t1].kind == "F":
-            return False
-
-        if t2 not in land_graph.neighbors((t1,)):
-            return False
-
-        for c in coasts:
-            if t1 in c and t2 in c:
-                return True
-
-        return False
-
     def auto_coast(self):
         if (self.board[self.terr].kind != "F"
                 or self.building.targ not in split_coasts):
@@ -186,7 +171,7 @@ class OrderBuilder:
             return "TARG"
 
         if self.building.kind == "MOVE":
-            if self.building.via_c is None and self.needs_via_c():
+            if self.building.via_c is None and self.board.needs_via_c(self.building.orig, self.building.targ):
                 return "VIAC"
             elif self.building.coast is None and not self.auto_coast():
                 return "COAST"
@@ -393,7 +378,7 @@ class OrderBuilder:
         return {o.terr for o in self.orders}
 
     def unordered(self):
-        return occupied(self.board, self.nation) - self.ordered()
+        return self.board.occupied(self.nation) - self.ordered()
 
     def get_terrs_hint(self):
         if self.terr_remove:
@@ -413,11 +398,11 @@ class OrderBuilder:
             common_neighbors = copy(territories)
 
             for t in self.terrs:
-                common_neighbors &= reachables(t, self.board)
+                common_neighbors &= self.board.valid_dests(t)
 
             for t in territories:
-                if (not reachables(t, self.board).isdisjoint(common_neighbors)
-                        or not reachables_via_c(t, self.board, self.terrs)
+                if (not self.board.valid_dests(t).isdisjoint(common_neighbors)
+                        or not self.board.valid_dests_via_c(t, self.terrs)
                             .isdisjoint(common_neighbors)):
 
                     ret.add(t)
@@ -425,7 +410,7 @@ class OrderBuilder:
             ret -= self.terrs
 
         elif self.building.kind == "CONV":
-            for t in sea_graph.neighbors(contiguous_fleets(self.terrs, self.board)):
+            for t in sea_graph.neighbors(self.board.contiguous_fleets(self.terrs)):
                 if self.board[t].occupied and self.board[t].kind == "A":
                     ret.add(t)
 
@@ -433,26 +418,26 @@ class OrderBuilder:
 
     def get_targs_hint(self):
         if self.building.kind == "MOVE":
-            return (reachables(self.terr, self.board)
-                    | reachables_via_c(self.building.orig, self.board))
+            return (self.board.valid_dests(self.terr)
+                    | self.board.valid_dests_via_c(self.building.orig))
 
         if self.building.kind == "SUPH":
-            return reachables(self.terr, self.board)
+            return self.board.valid_dests(self.terr)
 
         elif self.building.kind == "SUPM":
             common_neighbors = copy(territories)
 
             for t in self.terrs:
-                common_neighbors &= reachables(t, self.board)
+                common_neighbors &= self.board.valid_dests(t)
 
             return (
                 common_neighbors & (
-                    reachables(self.building.orig, self.board)
-                    | reachables_via_c(
-                        self.building.orig, self.board, self.terrs)))
+                    self.board.valid_dests(self.building.orig)
+                    | self.board.valid_dests_via_c(
+                        self.building.orig, self.terrs)))
 
         elif self.building.kind == "CONV":
-            return reachables_via_c(self.building.orig, self.board)
+            return self.board.valid_dests_via_c(self.building.orig)
 
 
     hints = {
@@ -508,7 +493,7 @@ class OrderBuilder:
         if self.more:
             hint = territories - hint
 
-        keyboard = make_grid(sorted(hint, key=str.upper))
+        keyboard = make_grid(sorted(hint, key=str.casefold))
 
         keyboard.append(["More..."])
 
@@ -523,5 +508,3 @@ class OrderBuilder:
         keyboard.append(["Back"])
 
         return RKM(keyboard)
-
-

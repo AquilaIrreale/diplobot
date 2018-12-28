@@ -1,6 +1,5 @@
-* Modularize
-* Modularize more
-* Implement tests on modularized components
 * Switch to generators wherever possible
-* Make case insensitive comparisons consistent
+* Change some method signatures in Graph and Board
+* Modularize even more
+* Implement tests on modularized components
 * Implement timeout

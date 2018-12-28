@@ -67,7 +67,7 @@ def print_board(bot, game):
 def print_board_old(bot, game):
     message = "DEBUG: state of the board\n\n"
 
-    for t in sorted(occupied(game.board) | supp_centers, key=str.upper):
+    for t in sorted(game.board.occupied() | supp_centers, key=str.casefold):
         info = []
 
         if game.board[t].occupied:
@@ -727,7 +727,7 @@ def run_adjudication(bot, game):
 
         p.retreat_choices = [
             (t, game.board[t].kind, None)
-            for t in sorted(dislodged, key=str.lower)
+            for t in sorted(dislodged, key=str.casefold)
             if retreats[t]
         ]
 
@@ -768,7 +768,7 @@ def run_adjudication(bot, game):
 
     if retreats:
         message += ("<b>These units have been dislodged:</b>\n"
-                    + ", ".join(sorted(retreats.keys(), key=str.lower)) + "\n\n"
+                    + ", ".join(sorted(retreats.keys(), key=str.casefold)) + "\n\n"
                     + "Awaiting retreat orders")
 
     send_with_retry(bot, game.chat_id, message, parse_mode=ParseMode.HTML)
@@ -838,7 +838,7 @@ def show_retreats_prompt(bot, game, player):
 
         return
 
-    keyboard = make_grid(sorted(player.retreats[t], key=str.lower))
+    keyboard = make_grid(sorted(player.retreats[t], key=str.casefold))
 
     keyboard.append(["Disband"])
 
@@ -940,17 +940,17 @@ def execute_retreats(bot, game):
 
     bad_retreats = sorted(
         filter(lambda r: r[2] in dupes, retreats),
-        key=lambda r: (r[2].upper(), r[0].upper()))
+        key=lambda r: (r[2].casefold(), r[0].casefold()))
 
     good_retreats = sorted(
         filter(lambda r: r[2] not in dupes, retreats),
-        key=lambda r: (r[0].upper(), r[2].upper()))
+        key=lambda r: (r[0].casefold(), r[2].casefold()))
 
     message = ""
 
     if destroyed:
         message += ("These units couldn't retreat and have been disbanded\n\n"
-                    + ", ".join(sorted(destroyed, key=str.lower)) + "\n")
+                    + ", ".join(sorted(destroyed, key=str.casefold)) + "\n")
 
     if good_retreats:
         message += "\nThe following retreat orders have been carried out\n"
@@ -988,7 +988,7 @@ def check_victory(bot, game):
     else:
         try:
             winner = next(p for p in game.players.values()
-                          if len(owned(game.board, p.nation)) >= 18)
+                          if len(game.board.owned(p.nation)) >= 18)
 
         except StopIteration:
             return False
@@ -1018,11 +1018,11 @@ def auto_disband(board, nation, n):
         (
             distance_from_home(t, nation),
             0 if board[t].kind == "F" else 1,
-            t.upper(),
+            t.casefold(),
             t
         )
 
-        for t in occupied(board, nation)
+        for t in board.occupied(nation)
     )
 
     disbanding = map(itemgetter(3), candidates[:n])
@@ -1053,8 +1053,8 @@ def update_centers(bot, game):
         except KeyError:
             p = None
 
-        units = occupied(game.board, n)
-        centers = owned(game.board, n)
+        units = game.board.occupied(n)
+        centers = game.board.owned(n)
 
         if p and not centers:
             for t in units:
@@ -1093,7 +1093,7 @@ def update_centers(bot, game):
 
             p.units_options = (home_centers[p.nation]
                                & centers
-                               - occupied(game.board))
+                               - game.board.occupied())
 
             p.units_delta = min(
                 centers_n - units_n, len(p.units_options))
@@ -1139,7 +1139,7 @@ def show_disband_prompt(bot, game, player):
     else:
         keyboard = make_grid(sorted(
             player.units_options.difference(player.units_choices),
-            key=str.lower))
+            key=str.casefold))
 
         if not player.units_choices:
             message = "Which unit should be disbanded{}?".format(
@@ -1199,7 +1199,7 @@ def show_build_prompt(bot, game, player):
     else:
         keyboard = make_grid(sorted(
             player.units_options - {t for t, k, c in player.units_choices},
-            key=str.lower))
+            key=str.casefold))
 
         keyboard.append(["Done"])
 

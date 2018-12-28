@@ -20,7 +20,7 @@
 
 from operator import attrgetter
 
-from board import make_board
+from board import Board
 from order import OrderBuilder
 
 class Player:
@@ -64,7 +64,7 @@ class Player:
 
 class Game:
     def __init__(self, chat_id):
-        self.board = make_board()
+        self.board = Board()
         self.chat_id = chat_id
         self.state = "NEW"
         self.players = {}

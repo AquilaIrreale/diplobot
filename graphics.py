@@ -26,7 +26,7 @@ import xml.etree.ElementTree as ET
 
 from copy import deepcopy
 
-from board import occupied, owned, supp_centers, split_coasts
+from board import supp_centers, split_coasts
 
 
 def set_style(e, key, value):
@@ -50,7 +50,7 @@ def del_style(e, key):
     e.set("style", style)
 
 
-board_svg = ET.parse("board.svg")
+board_svg = ET.parse("assets/board.svg")
 
 piece_re = re.compile(r"^\w{3}_[AF](_(NC|SC))?$")
 
@@ -74,12 +74,12 @@ def render_board(board):
     board_copy = deepcopy(board_svg)
     root = board_copy.getroot()
 
-    for t in owned(board) & supp_centers:
+    for t in board.owned() & supp_centers:
         e = root.find('.//*[@id="{}_dot"]'.format(t))
         color = nation_colors[board[t].owner]
         set_style(e, "fill", color)
 
-    for t in occupied(board):
+    for t in board.occupied():
         k = board[t].kind
         c = board[t].coast
 

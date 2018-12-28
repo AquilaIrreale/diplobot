@@ -23,13 +23,13 @@ class InsensitiveList(list):
         super().__init__(iterable)
 
     def __contains__(self, item):
-        return item.upper() in (x.upper() for x in self)
+        return item.casefold() in (x.casefold() for x in self)
 
     def match_case(self, item):
-        item_upper = item.upper()
+        item_caseless = item.casefold()
 
-        for elem, upper in zip(self, (x.upper() for x in self)):
-            if upper == item_upper:
+        for elem, caseless in zip(self, (x.casefold() for x in self)):
+            if caseless == item_caseless:
                 return elem
 
         raise KeyError

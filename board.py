@@ -44,12 +44,16 @@ def load_graph(filename):
     return Graph(graph_dict)
 
 
-sea_graph = load_graph("sea_graph")
-land_graph = load_graph("land_graph")
+sea_graph = load_graph("assets/sea_graph")
+land_graph = load_graph("assets/land_graph")
 
 
 def strip_coast(t):
     return t[:3]
+
+
+def get_coast(t):
+    return t[3:]
 
 
 full_graph = Graph()
@@ -80,7 +84,7 @@ split_coasts = {t for t in coast if tuple(map(strip_coast, sea_graph.vertices())
 supp_centers = set()
 home_centers = {}
 
-with open("supply_centers") as f:
+with open("assets/supply_centers") as f:
     nation = None
 
     for line in f:
@@ -111,7 +115,7 @@ nations = sorted(n for n in home_centers)
 default_kind = {}
 default_coast = {}
 
-with open("default_units") as f:
+with open("assets/default_units") as f:
     for line in f:
         if not line.strip():
             continue
@@ -146,98 +150,136 @@ class Territory:
             self.owner, self.occupied, self.kind, self.coast)
 
 
-def make_board():
-    ret = {}
+class Board(dict):
+    def __init__(self):
+        super().__init__(self)
 
-    for t in territories:
-        for n in nations:
-            if t in home_centers[n]:
-                ret[t] = Territory(owner=n,
-                                   occupied=n,
-                                   kind=default_kind[t],
-                                   coast=default_coast[t])
-                break
+        for t in territories:
+            for n in nations:
+                if t in home_centers[n]:
+                    self[t] = Territory(owner=n,
+                                        occupied=n,
+                                        kind=default_kind[t],
+                                        coast=default_coast[t])
+                    break
 
-        else:
-            ret[t] = Territory()
+            else:
+                self[t] = Territory()
 
-    return ret
+    def occupied(self, nations=nations):
+        if isinstance(nations, str):
+            nations = {nations}
 
+        return {t for t in territories if self[t].occupied in nations}
 
-def occupied(board, nation=None):
-    if nation:
-        return {t for t in territories if board[t].occupied == nation}
-    else:
-        return {t for t in territories if board[t].occupied}
+    def owned(self, nations=nations):
+        if isinstance(nations, str):
+            nations = {nations}
 
+        return {t for t in supp_centers if self[t].owner in nations}
 
-def owned(board, nation=None):
-    if nation:
-        return {t for t in supp_centers if board[t].owner == nation}
-    else:
-        return {t for t in supp_centers if board[t].owner}
+    def valid_dests(self, t):
+        if not self[t].occupied:
+            return set()
 
-
-def reachables(t, board):
-    if not board[t].occupied:
-        return set()
-
-    if board[t].kind == "F":
-        g = sea_graph
+        if self[t].kind == "A":
+            return land_graph.neighbors(t)
 
         if t in split_coasts:
-            t += board[t].coast
+            assert self[t].coast in {"(NC)", "(SC)"}
+            t += self[t].coast
 
-    else:
-        g = land_graph
+        return {strip_coast(x) for x in sea_graph.neighbors(t)}
 
-    return {strip_coast(x) for x in g.neighbors({t})}
+    def valid_dests_via_c(self, t, excluded={}):
+        if (t not in coast
+                or not self[t].occupied
+                or self[t].kind != "A"):
 
+            return set()
 
-def reachables_via_c(t, board, excluded={}):
-    if t not in coast or not board[t].occupied or board[t].kind != "A":
-        return set()
+        to_check = full_graph.neighbors(t) & offshore
+        checked = set()
+        ret = set()
 
-    checked = set()
-    to_check = full_graph.neighbors({t}) & offshore
-    ret = set()
+        while to_check:
+            t1 = to_check.pop()
+            checked.add(t1)
 
-    while to_check:
-        t1 = next(iter(to_check))
-        to_check.discard(t1)
-        checked.add(t1)
+            if not self[t1].occupied or t1 in excluded:
+                continue
 
-        if not board[t1].occupied or t1 in excluded:
-            continue
+            for t2 in sea_graph.neighbors(t1):
+                t2 = strip_coast(t2)
 
-        for t2 in sea_graph.neighbors({t1}):
-            t2 = strip_coast(t2)
+                if t2 in coast:
+                    ret.add(t2)
 
-            if t2 in coast:
-                ret.add(t2)
+                elif t2 not in checked:
+                    to_check.add(t2)
 
-            elif t2 not in checked:
-                to_check.add(t2)
+        ret.discard(t)
 
-    ret.discard(t)
+        return ret
 
-    return ret
+    def contiguous_fleets(self, ts):
+        assert all(t in offshore for t in ts)
 
+        nations = {self[t].occupied for t in ts if self[t].occupied}
 
-def contiguous_fleets(ts, board):
-    nations = {board[t].occupied for t in ts if board[t].occupied}
-    to_check = sea_graph.neighbors(ts)
-    ret = copy(ts)
+        to_check = sea_graph.neighbors(ts)
+        checked = set()
+        ret = set(ts)
 
-    while to_check:
-        t = to_check.pop()
+        while to_check:
+            t = to_check.pop()
 
-        if (t in offshore
-                and board[t].occupied
-                and board[t].occupied not in nations):
+            checked.add(t)
 
-            ret.add(t)
+            if (t in offshore
+                    and self[t].occupied
+                    and self[t].occupied not in nations):
 
-            to_check |= sea_graph.neighbors({t}) - ret
+                ret.add(t)
 
-    return ret
+                to_check |= sea_graph.neighbors(t) - checked
+
+        return ret
+
+    def needs_via_c(self, t1, t2):
+        assert self[t1].occupied
+
+        ts = {t1, t2}
+
+        if (not ts.issubset(coast)
+                or self[t1].kind != "F"
+                or t2 not in self.valid_dests(t1)):
+
+            return False
+
+        for t3 in full_graph.shared_neighbors(ts):
+            if (t3 in offshore
+                    and self[t3].occupied
+                    and self[t3].occupied != self[t1].occupied):
+
+                return True
+
+        return False
+
+    def needs_coast(self, t1, t2):
+        assert self[t1].occupied
+
+        return self[t1].kind == "F" and t2 in split_coasts
+
+    def infer_coast(self, t1, t2):
+        assert self[t1].occupied
+        assert self[t1].kind == "F"
+        assert t2 in split_coasts
+        assert t2 in self.valid_dests(t1)
+
+        neighs = sea_graph.neighbors(t1)
+
+        if ({t2 + "(NC)", t2 + "(SC)"}.issubset(neighs)):
+            return None
+
+        return next(get_coast(t) for t in neighs if strip_coast(t) == t2)
