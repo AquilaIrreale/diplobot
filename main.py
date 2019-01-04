@@ -1452,7 +1452,11 @@ def main():
     with f:
         token = f.read().strip()
 
-    updater = Updater(token)
+    updater = Updater(token, request_kwargs={
+        'read_timeout': 15,
+        'connect_timeout': 15
+    })
+
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start",     start_cmd))
