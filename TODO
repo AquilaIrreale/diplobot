@@ -1,5 +1,7 @@
 * Switch to generators wherever possible
 * Change some method signatures in Graph and Board
-* Modularize even more
+* MAYBE: make Order polymorphic
+* Modularize even more (make a bot class to contain globals and handler logic)
 * Implement tests on modularized components
+* Switch to db based data storage
 * Implement timeout
