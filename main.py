@@ -44,6 +44,8 @@ from telegram.ext import (Updater,
 
 from telegram.error import BadRequest, TimedOut
 
+import guards
+
 from utils import make_grid
 from board import *
 from order import *
@@ -52,124 +54,37 @@ from adjudicator import adjudicate
 from graphics import render_board
 
 
-def print_board(bot, game):
-    bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
+class Diplobot:
+    def print_board(bot, game):
+        bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
 
-    board_png = render_board(game.board)
+        board_png = render_board(game.board)
 
-    with open(board_png, "b") as fd:
-        bot.send_photo(
-            game.chat_id, fd, "State of the board ({})".format(game.date()))
+        with open(board_png, "b") as fd:
+            bot.send_photo(
+                game.chat_id, fd, "State of the board ({})".format(game.date()))
 
-    os.unlink(board_png)
-
-
-def print_board_old(bot, game):
-    message = "DEBUG: state of the board\n\n"
-
-    for t in sorted(game.board.occupied() | supp_centers, key=str.casefold):
-        info = []
-
-        if game.board[t].occupied:
-            info.append("Occ. " + game.board[t].occupied)
-
-        if t in supp_centers:
-            info.append("Own. " + str(game.board[t].owner))
-
-        if not info:
-            continue
-
-        message += t + ": " + ", ".join(info) + "\n"
-
-    send_with_retry(bot, game.chat_id, message)
+        os.unlink(board_png)
 
 
-## Guards
-#########
+    def print_board_old(bot, game):
+        message = "DEBUG: state of the board\n\n"
 
+        for t in sorted(game.board.occupied() | supp_centers, key=str.casefold):
+            info = []
 
-class HandlerGuard(Exception):
-    pass
+            if game.board[t].occupied:
+                info.append("Occ. " + game.board[t].occupied)
 
+            if t in supp_centers:
+                info.append("Own. " + str(game.board[t].owner))
 
-def group_chat_guard(update):
-    if update.message.chat.type != "group":
-        reply_text_with_retry(update, "This command can only be used in a group chat")
-        raise HandlerGuard
+            if not info:
+                continue
 
+            message += t + ": " + ", ".join(info) + "\n"
 
-def private_chat_guard(update):
-    if update.message.chat.type != "private":
-        reply_text_with_retry(update, "This command can only be used in a private chat")
-        raise HandlerGuard
-
-
-def game_exists_guard(update):
-    if update.message.chat.id not in games:
-        reply_text_with_retry(
-            update,
-            "There is no game currently running in this chat\n"
-            "Start one with /newgame!")
-
-        raise HandlerGuard
-
-def player_in_game_guard(update):
-    try:
-        return game_by_player(update.message.chat.id)
-    except KeyError:
-        reply_text_with_retry(update, "You need to join a game to use this command")
-        raise HandlerGuard
-
-
-def game_status_guard(update, game, status):
-    if game.state != status:
-        reply_text_with_retry(update, "You can't use this command right now")
-        raise HandlerGuard
-
-
-def player_not_ready_guard(update, player):
-    if player.ready:
-        reply_text_with_retry(
-            update,
-            "You have already committed you orders. Withdraw with /unready",
-            quote=False)
-
-        raise HandlerGuard
-
-
-def player_ready_guard(update, player):
-    if not player.ready:
-        reply_text_with_retry(
-            update,
-            "You have not committed your orders yet",
-            quote=False)
-
-        raise HandlerGuard
-
-
-def player_not_building_order_guard(update, player):
-    if player.builder:
-        reply_text_with_retry(
-            update,
-            "You have an order to complete first",
-            quote=False)
-
-        raise HandlerGuard
-
-
-def player_not_deleting_orders_guard(update, player):
-    if player.deleting:
-        reply_text_with_retry(
-            update,
-            "You have to tell me what orders to delete first "
-            "(type back to abort)",
-            quote=False)
-
-        raise HandlerGuard
-
-
-## Handlers
-###########
+        send_with_retry(bot, game.chat_id, message)
 
 
 def start_cmd(bot, update):
@@ -197,7 +112,7 @@ def newgame(bot, chat_id, from_id):
 
 def newgame_cmd(bot, update):
     try:
-        group_chat_guard(update)
+        guards.group_chat(update)
     except HandlerGuard:
         return
 
@@ -250,8 +165,8 @@ def newgame_cmd(bot, update):
 
 def closegame_cmd(bot, update):
     try:
-        group_chat_guard(update)
-        game_exists_guard(update)
+        guards.group_chat(update)
+        guards.game_exists(update)
     except HandlerGuard:
         return
 
@@ -275,8 +190,8 @@ def closegame_cmd(bot, update):
 
 def join_cmd(bot, update):
     try:
-        group_chat_guard(update)
-        game_exists_guard(update)
+        guards.group_chat(update)
+        guards.game_exists(update)
     except HandlerGuard:
         return
 
@@ -320,7 +235,7 @@ def join_cmd(bot, update):
 
 def startgame_cmd(bot, update):
     try:
-        game_exists_guard(update)
+        guards.game_exists(update)
     except HandlerGuard:
         return
 
@@ -514,15 +429,15 @@ def show_command_menu(bot, game, player):
 
 def new_cmd(bot, update):
     try:
-        private_chat_guard(update)
+        guards.private_chat(update)
 
-        game = player_in_game_guard(update)
-        game_status_guard(update, game, "ORDER_PHASE")
+        game = guards.player_in_game(update)
+        guards.game_status(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
-        player_not_ready_guard(update, player)
-        player_not_building_order_guard(update, player)
-        player_not_deleting_orders_guard(update, player)
+        guards.player_not_ready(update, player)
+        guards.player_not_building_order(update, player)
+        guards.player_not_deleting_orders(update, player)
 
     except HandlerGuard:
         return
@@ -591,15 +506,15 @@ def order_msg_handler(bot, update, game, player):
 
 def delete_cmd(bot, update):
     try:
-        private_chat_guard(update)
+        guards.private_chat(update)
 
-        game = player_in_game_guard(update)
-        game_status_guard(update, game, "ORDER_PHASE")
+        game = guards.player_in_game(update)
+        guards.game_status(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
-        player_not_ready_guard(update, player)
-        player_not_building_order_guard(update, player)
-        player_not_deleting_orders_guard(update, player)
+        guards.player_not_ready(update, player)
+        guards.player_not_building_order(update, player)
+        guards.player_not_deleting_orders(update, player)
 
     except HandlerGuard:
         return
@@ -662,15 +577,15 @@ def delete_msg_handler(bot, update, game, player):
 
 def ready_cmd(bot, update):
     try:
-        private_chat_guard(update)
+        guards.private_chat(update)
 
-        game = player_in_game_guard(update)
-        game_status_guard(update, game, "ORDER_PHASE")
+        game = guards.player_in_game(update)
+        guards.game_status(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
-        player_not_ready_guard(update, player)
-        player_not_building_order_guard(update, player)
-        player_not_deleting_orders_guard(update, player)
+        guards.player_not_ready(update, player)
+        guards.player_not_building_order(update, player)
+        guards.player_not_deleting_orders(update, player)
 
     except HandlerGuard:
         return
@@ -684,13 +599,13 @@ def ready_cmd(bot, update):
 
 def unready_cmd(bot, update):
     try:
-        private_chat_guard(update)
+        guards.private_chat(update)
 
-        game = player_in_game_guard(update)
-        game_status_guard(update, game, "ORDER_PHASE")
+        game = guards.player_in_game(update)
+        guards.game_status(update, game, "ORDER_PHASE")
 
         player = game.players[update.message.chat.id]
-        player_ready_guard(update, player)
+        guards.player_ready(update, player)
 
     except HandlerGuard:
         return
