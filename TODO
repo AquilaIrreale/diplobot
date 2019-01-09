@@ -4,4 +4,5 @@
 * Modularize even more (make a bot class to contain globals and handler logic)
 * Implement tests on modularized components
 * Switch to db based data storage
+* Internationalization
 * Implement timeout
