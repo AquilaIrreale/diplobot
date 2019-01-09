@@ -99,13 +99,3 @@ class Game:
 
     def date(self):
         return self.season() + " " + self.printable_year()
-
-games = {}
-
-def game_by_player(player_id):
-    try:
-        game = next(g for g in games.values() if player_id in g.players)
-    except StopIteration:
-        raise KeyError
-
-    return game
