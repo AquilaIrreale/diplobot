@@ -24,20 +24,19 @@ class HandlerGuard(Exception):
 
 def group_chat(update):
     if update.message.chat.type != "group":
-        reply_text_with_retry(update, "This command can only be used in a group chat")
+        update.message.reply_text("This command can only be used in a group chat")
         raise HandlerGuard
 
 
 def private_chat(update):
     if update.message.chat.type != "private":
-        reply_text_with_retry(update, "This command can only be used in a private chat")
+        update.message.reply_text("This command can only be used in a private chat")
         raise HandlerGuard
 
 
 def game_exists(update):
     if update.message.chat.id not in games:
-        reply_text_with_retry(
-            update,
+        update.message.reply_text(
             "There is no game currently running in this chat\n"
             "Start one with /newgame!")
 
@@ -47,20 +46,19 @@ def player_in_game(update):
     try:
         return game_by_player(update.message.chat.id)
     except KeyError:
-        reply_text_with_retry(update, "You need to join a game to use this command")
+        update.message.reply_text("You need to join a game to use this command")
         raise HandlerGuard
 
 
 def game_status(update, game, status):
     if game.state != status:
-        reply_text_with_retry(update, "You can't use this command right now")
+        update.message.reply_text("You can't use this command right now")
         raise HandlerGuard
 
 
 def player_not_ready(update, player):
     if player.ready:
-        reply_text_with_retry(
-            update,
+        update.message.reply_text(
             "You have already committed you orders. Withdraw with /unready",
             quote=False)
 
@@ -69,8 +67,7 @@ def player_not_ready(update, player):
 
 def player_ready(update, player):
     if not player.ready:
-        reply_text_with_retry(
-            update,
+        update.message.reply_text(
             "You have not committed your orders yet",
             quote=False)
 
@@ -79,8 +76,7 @@ def player_ready(update, player):
 
 def player_not_building_order(update, player):
     if player.builder:
-        reply_text_with_retry(
-            update,
+        update.message.reply_text(
             "You have an order to complete first",
             quote=False)
 
@@ -89,8 +85,7 @@ def player_not_building_order(update, player):
 
 def player_not_deleting_orders(update, player):
     if player.deleting:
-        reply_text_with_retry(
-            update,
+        update.message.reply_text(
             "You have to tell me what orders to delete first "
             "(type back to abort)",
             quote=False)

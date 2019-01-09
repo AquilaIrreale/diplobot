@@ -95,19 +95,19 @@ class Diplobot:
 
             message += t + ": " + ", ".join(info) + "\n"
 
-        send_with_retry(bot, game.chat_id, message)
+        bot.send_message(game.chat_id, message)
 
     def start_cmd(bot, update):
-        reply_text_with_retry(update, "DiploBot started!", quote=False)
+        update.message.reply_text("DiploBot started!", quote=False)
 
     def help_cmd(bot, update):
-        reply_text_with_retry(update, "There's no help right now", quote=False)
+        update.message.reply_text("There's no help right now", quote=False)
 
     def newgame(bot, chat_id, from_id):
         new_game = Game(chat_id)
         games[chat_id] = new_game
 
-        send_with_retry(bot, chat_id,
+        bot.send_message(chat_id,
                          "A new <i>Diplomacy</i> game is starting!\n"
                          "Join now with /join",
                          parse_mode=ParseMode.HTML)
@@ -115,7 +115,7 @@ class Diplobot:
         player = new_game.add_player(from_id, bot)
 
         handle = player.get_handle(bot, chat_id)
-        send_with_retry(bot, chat_id, handle + " joined the game")
+        bot.send_message(chat_id, handle + " joined the game")
 
     def newgame_cmd(bot, update):
         try:
@@ -130,7 +130,7 @@ class Diplobot:
             newgame(bot, chat_id, from_id)
             return
 
-        reply_text_with_retry(update, "A game is already running in this chat", quote=False)
+        update.message.reply_text("A game is already running in this chat", quote=False)
 
         #TODO: vote?
 
@@ -188,9 +188,9 @@ class Diplobot:
         del games[update.message.chat.id]
 
         for p in game.players.values():
-            send_with_retry(bot, p.id, "Game closed", reply_markup=RKRemove())
+            bot.send_message(p.id, "Game closed", reply_markup=RKRemove())
 
-        reply_text_with_retry(update, "Game closed", quote=False)
+        update.message.reply_text("Game closed", quote=False)
 
     def join_cmd(bot, update):
         try:
@@ -207,33 +207,33 @@ class Diplobot:
         game = games[chat_id]
 
         if game.state != "NEW":
-            reply_text_with_retry(
-                update, handle + " you can't join right now", quote=False)
+            update.message.reply_text(
+                handle + " you can't join right now", quote=False)
 
             return
 
         if user_id in game.players:
-            reply_text_with_retry(
-                update, handle + " you already have joined this game", quote=False)
+            update.message.reply_text(
+                handle + " you already have joined this game", quote=False)
 
             return
 
         for g in games.values():
             if user_id in g.players:
-                reply_text_with_retry(
-                    update, handle + " you are in another game already", quote=False)
+                update.message.reply_text(
+                    handle + " you are in another game already", quote=False)
 
                 return
 
         player = game.add_player(user_id, bot)
 
         handle = player.get_handle(bot, chat_id)
-        send_with_retry(bot, chat_id, handle + " joined the game")
+        bot.send_message(chat_id, handle + " joined the game")
 
         if not game.is_full():
             return
 
-        reply_text_with_retry(update, "All the players have joined", quote=False)
+        update.message.reply_text("All the players have joined", quote=False)
         startgame(bot, game)
 
     def startgame_cmd(bot, update):
@@ -256,7 +256,7 @@ class Diplobot:
     def startgame(bot, game):
         game.state = "CHOOSING_NATIONS"
 
-        send_with_retry(bot, game.chat_id, "The game will begin shortly...")
+        bot.send_message(game.chat_id, "The game will begin shortly...")
         show_nations_menu(bot, game)
 
     def show_nations_menu(bot, game):
@@ -280,8 +280,8 @@ class Diplobot:
         ])
 
         handle = player.get_handle(bot, game.chat_id)
-        message = send_with_retry(
-            bot, game.chat_id, handle + " choose a nation", reply_markup=keyboard)
+        message = bot.send_message(
+            game.chat_id, handle + " choose a nation", reply_markup=keyboard)
 
         game.assigning = player.id
         game.assigning_message = message
@@ -343,7 +343,7 @@ class Diplobot:
         show_year_menu(bot, game)
 
     def show_year_menu(bot, game):
-        send_with_retry(bot, game.chat_id, "What year should the game begin in?")
+        bot.send_message(game.chat_id, "What year should the game begin in?")
 
         game.state = "CHOOSING_YEAR"
 
@@ -357,7 +357,7 @@ class Diplobot:
             year = int(match.group(1))
 
         if not match or year == 0:
-            reply_text_with_retry(update, "That's not a valid year", quote=True)
+            update.message.reply_text("That's not a valid year", quote=True)
             return
 
         sign = match.group(2)
@@ -383,7 +383,7 @@ class Diplobot:
 
         start_message += "\nThe year is {}\nLet the game begin!".format(game.printable_year())
 
-        send_with_retry(bot, game.chat_id, start_message, parse_mode=ParseMode.HTML)
+        bot.send_message(game.chat_id, start_message, parse_mode=ParseMode.HTML)
 
         turn_start(bot, game)
 
@@ -392,15 +392,15 @@ class Diplobot:
 
         game.state = "ORDER_PHASE"
 
-        send_with_retry(
-            bot, game.chat_id,
+        bot.send_message(
+            game.chat_id,
             "<b>Awaiting orders for {}</b>".format(game.date()),
             parse_mode=ParseMode.HTML)
 
         for p in game.players.values():
             p.reset()
-            send_with_retry(
-                bot, p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
+            bot.send_message(
+                p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
                 parse_mode=ParseMode.HTML)
 
             show_command_menu(bot, game, p)
@@ -417,7 +417,7 @@ class Diplobot:
                     "/delete - withdraw an order\n"
                     "/ready - when you are done")
 
-        send_with_retry(bot, player.id, message, reply_markup=RKRemove())
+        bot.send_message(player.id, message, reply_markup=RKRemove())
 
     def new_cmd(bot, update):
         try:
@@ -435,9 +435,9 @@ class Diplobot:
             return
 
         if not player.builder.unordered():
-            reply_text_with_retry(update, "You have already sent orders to all of your units. "
-                                          "/delete the orders you want to change, or send /ready "
-                                          "when you are ready")
+            update.message.reply_text("You have already sent orders to all of your units. "
+                                      "/delete the orders you want to change, or send /ready "
+                                      "when you are ready")
             return
 
         player.builder.new()
@@ -468,22 +468,22 @@ class Diplobot:
         else:
             prompt = order_menu_prompts[ntf]
 
-        send_with_retry(
-            bot, player.id, prompt, reply_markup=player.builder.get_keyboard())
+        bot.send_message(
+            player.id, prompt, reply_markup=player.builder.get_keyboard())
 
     def order_msg_handler(bot, update, game, player):
         try:
             ntf = player.builder.push(update.message.text)
 
         except ValueError:
-            reply_text_with_retry(update, "Invalid input")
+            update.message.reply_text("Invalid input")
 
         except IndexError:
             player.builder.pop()
             show_command_menu(bot, game, player)
 
         except BuilderError as e:
-            reply_text_with_retry(update, e.message)
+            update.message.reply_text(e.message)
 
         else:
             if ntf == "DONE":
@@ -508,7 +508,7 @@ class Diplobot:
         except HandlerGuard:
             return
 
-        reply_text_with_retry(update, "Which orders do you want to delete? (back to abort)")
+        update.message.reply_text("Which orders do you want to delete? (back to abort)")
 
         player.deleting = True
 
@@ -547,7 +547,7 @@ class Diplobot:
         try:
             ranges = set(parse_delete_msg(update.message.text, len(player.orders)))
         except ValueError:
-            reply_text_with_retry(update, "Invalid input")
+            update.message.reply_text("Invalid input")
             return
 
         orders = sorted(player.orders)
@@ -576,7 +576,7 @@ class Diplobot:
         except HandlerGuard:
             return
 
-        reply_text_with_retry(update, "Orders committed. Withdraw with /unready")
+        update.message.reply_text("Orders committed. Withdraw with /unready")
 
         player.ready = True
 
@@ -595,7 +595,7 @@ class Diplobot:
         except HandlerGuard:
             return
 
-        reply_text_with_retry(update, "Orders withdrawn")
+        update.message.reply_text("Orders withdrawn")
 
         player.ready = False
 
@@ -669,7 +669,7 @@ class Diplobot:
                         + ", ".join(sorted(retreats.keys(), key=str.casefold)) + "\n\n"
                         + "Awaiting retreat orders")
 
-        send_with_retry(bot, game.chat_id, message, parse_mode=ParseMode.HTML)
+        bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
 
         game.state = "RETREAT_PHASE"
 
@@ -705,7 +705,7 @@ class Diplobot:
             message += "<b>{}</b> can retreat to {}\n".format(
                 t1, ", ".join(player.retreats[t1]))
 
-        send_with_retry(bot, player.id, message, parse_mode=ParseMode.HTML)
+        bot.send_message(player.id, message, parse_mode=ParseMode.HTML)
 
         if not player.retreat_choices:
             player.ready = True
@@ -729,7 +729,7 @@ class Diplobot:
                 ["Yes", "No"],
             ]
 
-            send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
+            bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
             return
 
@@ -740,8 +740,8 @@ class Diplobot:
         if next(t2 for t1, k, t2 in player.retreat_choices) is not None:
             keyboard.append(["Back"])
 
-        send_with_retry(
-            bot, player.id, "Where should {} retreat to?".format(t),
+        bot.send_message(
+            player.id, "Where should {} retreat to?".format(t),
             reply_markup=RKM(keyboard))
 
     def retreat_msg_handler(bot, update, game, player):
@@ -757,8 +757,8 @@ class Diplobot:
         except StopIteration:
             if s in {"Y", "YES"}:
                 player.ready = True
-                reply_text_with_retry(
-                    update, "Retreats committed", reply_markup=RKRemove())
+                update.message.reply_text(
+                    "Retreats committed", reply_markup=RKRemove())
                 retreats_ready_check(bot, game)
 
             elif s in {"N", "NO"}:
@@ -767,13 +767,13 @@ class Diplobot:
                 show_retreats_prompt(bot, game, player)
 
             else:
-                reply_text_with_retry(update, "Invalid input")
+                update.message.reply_text("Invalid input")
 
             return
 
         if s == "BACK":
             if i == 0:
-                reply_text_with_retry(update, "Invalid input")
+                update.message.reply_text("Invalid input")
 
             else:
                 player.retreat_choices[i-1] = (t1, k, None)
@@ -789,11 +789,11 @@ class Diplobot:
         try:
             t2 = terr_names.match_case(s)
         except KeyError:
-            reply_text_with_retry(update, "Invalid input")
+            update.message.reply_text("Invalid input")
             return
 
         if t2 not in player.retreats[t1]:
-            reply_text_with_retry(update, "Can't retreat in " + t2)
+            update.message.reply_text("Can't retreat in " + t2)
             return
 
         player.retreat_choices[i] = (t1, k, t2)
@@ -864,7 +864,7 @@ class Diplobot:
                 message += "{}-{}\n".format(t1, t2)
 
         if message:
-            send_with_retry(bot, game.chat_id, message)
+            bot.send_message(game.chat_id, message)
 
         if game.autumn:
             update_centers(bot, game)
@@ -884,12 +884,12 @@ class Diplobot:
             except StopIteration:
                 return False
 
-        send_with_retry(
-            bot, winner.id, "<b>You won!</b>",
+        bot.send_message(
+            winner.id, "<b>You won!</b>",
             parse_mode=ParseMode.HTML)
 
-        send_with_retry(
-            bot, game.chat_id,
+        bot.send_message(
+            game.chat_id,
             "<b>{} ({}) wins!</b>".format(
                 winner.nation, winner.get_handle(bot, game.chat_id)),
             parse_mode=ParseMode.HTML)
@@ -924,7 +924,7 @@ class Diplobot:
     def update_centers(bot, game):
         game.state = "BUILDING_PHASE"
 
-        send_with_retry(bot, game.chat_id, "Updating supply centers...")
+        bot.send_message(game.chat_id, "Updating supply centers...")
 
         for t in supp_centers:
             if game.board[t].occupied:
@@ -950,9 +950,9 @@ class Diplobot:
                     game.board[t].kind = None
                     game.board[t].coast = None
 
-                send_with_retry(bot, p.id, "You lost!")
-                send_with_retry(
-                    bot, game.chat_id, "{} ({}) was eliminated".format(
+                bot.send_message(p.id, "You lost!")
+                bot.send_message(
+                    game.chat_id, "{} ({}) was eliminated".format(
                         p.nation, p.get_handle(bot, game.chat_id)))
 
                 game.players = {k: v for k, v in game.players.items() if v is not p}
@@ -997,8 +997,8 @@ class Diplobot:
 
     def show_units_menu(bot, game, player):
         if player.units_disbanding:
-            send_with_retry(
-                bot, player.id,
+            bot.send_message(
+                player.id,
                 "Supply centers have been updated.\n"
                 "You have to disband {} of your units".format(
                     player.units_delta))
@@ -1006,8 +1006,8 @@ class Diplobot:
             show_disband_prompt(bot, game, player)
 
         else:
-            send_with_retry(
-                bot, player.id,
+            bot.send_message(
+                player.id,
                 "Supply centers have been updated.\n"
                 "You can build up to {} new units".format(
                     player.units_delta))
@@ -1037,7 +1037,7 @@ class Diplobot:
 
                 keyboard.append(["Back"])
 
-        send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
+        bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
     def format_build(choices):
         s = ""
@@ -1097,7 +1097,7 @@ class Diplobot:
 
                 keyboard.append(["Back"])
 
-        send_with_retry(bot, player.id, message, reply_markup=RKM(keyboard))
+        bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
     def disband_msg_handler(bot, update, game, player):
         s = update.message.text.strip().upper()
@@ -1139,7 +1139,7 @@ class Diplobot:
                     player.units_delta -= 1
 
         if message:
-            send_with_retry(bot, player.id, message)
+            bot.send_message(player.id, message)
             return
 
         show_disband_prompt(bot, game, player)
@@ -1220,7 +1220,7 @@ class Diplobot:
                     player.units_delta -= 1
 
         if message:
-            send_with_retry(bot, player.id, message)
+            bot.send_message(player.id, message)
             return
 
         show_build_prompt(bot, game, player)
@@ -1285,32 +1285,6 @@ class Diplobot:
 
     def error_handler(bot, update, error):
         self.logger.warning("Got \"%s\" error while processing update:\n%s\n", error, pprint.pformat(update))
-
-    def send_with_retry(bot, *args, **kwargs):
-        for t in range(1, 31):
-            try:
-                message = bot.send_message(*args, **kwargs)
-            except TimedOut as e:
-                print("Retry " + t)
-                time.sleep(t)
-            else:
-                return message
-
-        else:
-            raise e
-
-    def reply_text_with_retry(update, *args, **kwargs):
-        for t in range(1, 31):
-            try:
-                update.message.reply_text(*args, **kwargs)
-            except TimedOut as e:
-                print("Retry " + t)
-                time.sleep(t)
-            else:
-                break
-
-        else:
-            raise e
 
     cmd_re = re.compile("^(.*)_cmd$")
     cbh_re = re.compile("^(.*)_cbh$")
