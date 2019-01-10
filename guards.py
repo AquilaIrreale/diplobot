@@ -18,76 +18,115 @@
   ############################################################################
 
 
-class HandlerGuard(Exception):
-    pass
+def group_chat(f):
+    def wrapper(self, bot, update):
+        if update.message.chat.type == "group":
+            f(self, bot, update)
+
+        else:
+            update.message.reply_text("This command can only be used in a group chat")
+
+    return wrapper
 
 
-def group_chat(update):
-    if update.message.chat.type != "group":
-        update.message.reply_text("This command can only be used in a group chat")
-        raise HandlerGuard
+def private_chat(f):
+    def wrapper(self, bot, update):
+        if update.message.chat.type == "private":
+            f(self, bot, update)
+
+        else:
+            update.message.reply_text("This command can only be used in a private chat")
+
+    return wrapper
 
 
-def private_chat(update):
-    if update.message.chat.type != "private":
-        update.message.reply_text("This command can only be used in a private chat")
-        raise HandlerGuard
+def game_exists(f):
+    def wrapper(self, bot, update):
+        if update.message.chat.id in self.games:
+            f(self, bot, update)
+
+        else:
+            update.message.reply_text(
+                "There is no game currently running in this chat\n"
+                "Start one with /newgame!")
+
+    return wrapper
 
 
-def game_exists(update):
-    if update.message.chat.id not in games:
-        update.message.reply_text(
-            "There is no game currently running in this chat\n"
-            "Start one with /newgame!")
+def player_in_game(f):
+    def wrapper(self, bot, update):
+        p_id = update.message.chat.id
 
-        raise HandlerGuard
+        try:
+            game = next(g for g in self.games.values() if p_id in g.players)
 
-def player_in_game(update):
-    try:
-        return game_by_player(update.message.chat.id)
-    except KeyError:
-        update.message.reply_text("You need to join a game to use this command")
-        raise HandlerGuard
+        except StopIteration:
+            update.message.reply_text("You need to join a game to use this command")
 
+        else:
+            f(self, bot, update, game, game.players[p_id])
 
-def game_status(update, game, status):
-    if game.state != status:
-        update.message.reply_text("You can't use this command right now")
-        raise HandlerGuard
+    return wrapper
 
 
-def player_not_ready(update, player):
-    if player.ready:
-        update.message.reply_text(
-            "You have already committed you orders. Withdraw with /unready",
-            quote=False)
+def game_state(state):
+    def decorator(f):
+        def wrapper(self, bot, update, game, player):
+            if game.state == state:
+                f(self, bot, update, game, player)
 
-        raise HandlerGuard
+            else:
+                update.message.reply_text("You can't use this command right now")
 
+        return wrapper
 
-def player_ready(update, player):
-    if not player.ready:
-        update.message.reply_text(
-            "You have not committed your orders yet",
-            quote=False)
-
-        raise HandlerGuard
+    return decorator
 
 
-def player_not_building_order(update, player):
-    if player.builder:
-        update.message.reply_text(
-            "You have an order to complete first",
-            quote=False)
+def player_ready(f):
+    def wrapper(self, bot, update, game, player):
+        if player.ready:
+            f(self, bot, update, game, player)
 
-        raise HandlerGuard
+        else:
+            update.message.reply_text(
+                "You have not committed your orders yet")
+
+    return wrapper
 
 
-def player_not_deleting_orders(update, player):
-    if player.deleting:
-        update.message.reply_text(
-            "You have to tell me what orders to delete first "
-            "(type back to abort)",
-            quote=False)
+def player_not_ready(f):
+    def wrapper(self, bot, update, game, player):
+        if not player.ready:
+            f(self, bot, update, game, player)
 
-        raise HandlerGuard
+        else:
+            update.message.reply_text(
+                "You have already committed you orders. Withdraw with /unready")
+
+    return wrapper
+
+
+def player_not_building_order(f):
+    def wrapper(self, bot, update, game, player):
+        if not player.builder:
+            f(self, bot, update, game, player)
+
+        else:
+            update.message.reply_text(
+                "You have an order to complete first")
+
+    return wrapper
+
+
+def player_not_deleting_orders(f):
+    def wrapper(self, bot, update, game, player):
+        if not player.deleting:
+            f(self, bot, update, game, player)
+
+        else:
+            update.message.reply_text(
+                "You have to tell me what orders to delete first "
+                "(type back to abort)")
+
+    return wrapper
