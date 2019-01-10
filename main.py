@@ -59,7 +59,7 @@ class Diplobot:
     def __init__(self):
         self.games = {}
 
-    def game_by_player(player_id):
+    def game_by_player(self, player_id):
         try:
             game = next(g for g in games.values() if player_id in g.players)
         except StopIteration:
@@ -67,7 +67,7 @@ class Diplobot:
 
         return game
 
-    def print_board(bot, game):
+    def print_board(self, bot, game):
         bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
 
         board_png = render_board(game.board)
@@ -78,7 +78,7 @@ class Diplobot:
 
         os.unlink(board_png)
 
-    def print_board_old(bot, game):
+    def print_board_old(self, bot, game):
         message = "DEBUG: state of the board\n\n"
 
         for t in sorted(game.board.occupied() | supp_centers, key=str.casefold):
@@ -97,13 +97,13 @@ class Diplobot:
 
         bot.send_message(game.chat_id, message)
 
-    def start_cmd(bot, update):
+    def start_cmd(self, bot, update):
         update.message.reply_text("DiploBot started!", quote=False)
 
-    def help_cmd(bot, update):
+    def help_cmd(self, bot, update):
         update.message.reply_text("There's no help right now", quote=False)
 
-    def newgame(bot, chat_id, from_id):
+    def newgame(self, bot, chat_id, from_id):
         new_game = Game(chat_id)
         games[chat_id] = new_game
 
@@ -117,7 +117,7 @@ class Diplobot:
         handle = player.get_handle(bot, chat_id)
         bot.send_message(chat_id, handle + " joined the game")
 
-    def newgame_cmd(bot, update):
+    def newgame_cmd(self, bot, update):
         try:
             guards.group_chat(update)
         except HandlerGuard:
@@ -168,7 +168,7 @@ class Diplobot:
     #        update.callback_query.message.reply_text("Game closed")
     #        newgame(bot, chat_id, from_id)
 
-    def closegame_cmd(bot, update):
+    def closegame_cmd(self, bot, update):
         try:
             guards.group_chat(update)
             guards.game_exists(update)
@@ -192,7 +192,7 @@ class Diplobot:
 
         update.message.reply_text("Game closed", quote=False)
 
-    def join_cmd(bot, update):
+    def join_cmd(self, bot, update):
         try:
             guards.group_chat(update)
             guards.game_exists(update)
@@ -236,7 +236,7 @@ class Diplobot:
         update.message.reply_text("All the players have joined", quote=False)
         startgame(bot, game)
 
-    def startgame_cmd(bot, update):
+    def startgame_cmd(self, bot, update):
         try:
             guards.game_exists(update)
         except HandlerGuard:
@@ -253,13 +253,13 @@ class Diplobot:
 
         startgame(bot, game)
 
-    def startgame(bot, game):
+    def startgame(self, bot, game):
         game.state = "CHOOSING_NATIONS"
 
         bot.send_message(game.chat_id, "The game will begin shortly...")
         show_nations_menu(bot, game)
 
-    def show_nations_menu(bot, game):
+    def show_nations_menu(self, bot, game):
         players = game.players.values()
 
         try:
@@ -286,7 +286,7 @@ class Diplobot:
         game.assigning = player.id
         game.assigning_message = message
 
-    def nations_menu_cbh(bot, update):
+    def nations_menu_cbh(self, bot, update):
         error = False
 
         try:
@@ -327,7 +327,7 @@ class Diplobot:
 
         show_nations_menu(bot, game)
 
-    def nations_menu_finalize(bot, game):
+    def nations_menu_finalize(self, bot, game):
         game.assigning = None
         game.assigning_message = None
 
@@ -342,14 +342,14 @@ class Diplobot:
 
         show_year_menu(bot, game)
 
-    def show_year_menu(bot, game):
+    def show_year_menu(self, bot, game):
         bot.send_message(game.chat_id, "What year should the game begin in?")
 
         game.state = "CHOOSING_YEAR"
 
     year_re = re.compile(r"^(\d*)\s*(AD|BC|CE|BCE)?$", re.IGNORECASE)
 
-    def year_msg_handler(bot, update, game):
+    def year_msg_handler(self, bot, update, game):
         text = update.message.text.strip()
         match = year_re.match(text)
 
@@ -368,14 +368,14 @@ class Diplobot:
 
         show_timeout_menu(bot, game)
 
-    def show_timeout_menu(bot, game):
+    def show_timeout_menu(self, bot, game):
         game.state = "CHOOSING_TIMEOUT"
 
         # TODO: implement this
 
         game_start(bot, game)
 
-    def game_start(bot, game):
+    def game_start(self, bot, game):
         start_message = "<b>Nations have been assigned as follows:</b>\n\n"
         for p in game.players.values():
             handle = p.get_handle(bot, game.chat_id)
@@ -387,7 +387,7 @@ class Diplobot:
 
         turn_start(bot, game)
 
-    def turn_start(bot, game):
+    def turn_start(self, bot, game):
         print_board(bot, game)
 
         game.state = "ORDER_PHASE"
@@ -405,7 +405,7 @@ class Diplobot:
 
             show_command_menu(bot, game, p)
 
-    def show_command_menu(bot, game, player):
+    def show_command_menu(self, bot, game, player):
         message = ""
         for index, order in enumerate(sorted(player.orders), 1):
             message += "{}. {}\n".format(index, str(order)) # TODO: use long formatting
@@ -419,7 +419,7 @@ class Diplobot:
 
         bot.send_message(player.id, message, reply_markup=RKRemove())
 
-    def new_cmd(bot, update):
+    def new_cmd(self, bot, update):
         try:
             guards.private_chat(update)
 
@@ -452,7 +452,7 @@ class Diplobot:
         "VIAC":  "Put a \"via convoy\" specifier?"
     }
 
-    def show_order_menu(bot, game, player, ntf=None):
+    def show_order_menu(self, bot, game, player, ntf=None):
         if not ntf:
             ntf = player.builder.next_to_fill()
 
@@ -471,7 +471,7 @@ class Diplobot:
         bot.send_message(
             player.id, prompt, reply_markup=player.builder.get_keyboard())
 
-    def order_msg_handler(bot, update, game, player):
+    def order_msg_handler(self, bot, update, game, player):
         try:
             ntf = player.builder.push(update.message.text)
 
@@ -493,7 +493,7 @@ class Diplobot:
             else:
                 show_order_menu(bot, game, player, ntf)
 
-    def delete_cmd(bot, update):
+    def delete_cmd(self, bot, update):
         try:
             guards.private_chat(update)
 
@@ -515,7 +515,7 @@ class Diplobot:
     parse_delete_num_re = re.compile(r"^(\d+)$")
     parse_delete_range_re = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 
-    def parse_delete_msg(s, n):
+    def parse_delete_msg(self, s, n):
         ss = s.split(",")
 
         for s in map(str.strip, ss):
@@ -538,7 +538,7 @@ class Diplobot:
 
             yield range(a-1, b)
 
-    def delete_msg_handler(bot, update, game, player):
+    def delete_msg_handler(self, bot, update, game, player):
         if update.message.text.strip().upper() == "BACK":
             player.deleting = False
             show_command_menu(bot, game, player)
@@ -561,7 +561,7 @@ class Diplobot:
 
         show_command_menu(bot, game, player)
 
-    def ready_cmd(bot, update):
+    def ready_cmd(self, bot, update):
         try:
             guards.private_chat(update)
 
@@ -582,7 +582,7 @@ class Diplobot:
 
         ready_check(bot, game)
 
-    def unready_cmd(bot, update):
+    def unready_cmd(self, bot, update):
         try:
             guards.private_chat(update)
 
@@ -601,12 +601,12 @@ class Diplobot:
 
         show_command_menu(bot, game, player)
 
-    def ready_check(bot, game):
+    def ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
             if game.state == "ORDER_PHASE":
                 run_adjudication(bot, game)
 
-    def run_adjudication(bot, game):
+    def run_adjudication(self, bot, game):
         game.state = "ADJUDICATING"
 
         data = [
@@ -676,7 +676,7 @@ class Diplobot:
         for p in game.players.values():
             show_retreats_menu(bot, game, p)
 
-    def apply_moves(board, moves):
+    def apply_moves(self, board, moves):
         nations = []
         kinds = []
 
@@ -690,7 +690,7 @@ class Diplobot:
             board[t2].occupied = n
             board[t2].kind = k
 
-    def show_retreats_menu(bot, game, player):
+    def show_retreats_menu(self, bot, game, player):
         if not player.retreat_choices and not player.destroyed:
             player.ready = True
             retreats_ready_check(bot, game)
@@ -714,7 +714,7 @@ class Diplobot:
 
         show_retreats_prompt(bot, game, player)
 
-    def show_retreats_prompt(bot, game, player):
+    def show_retreats_prompt(self, bot, game, player):
         try:
             t = next(t1 for t1, k, t2 in player.retreat_choices if t2 is None)
         except StopIteration:
@@ -744,7 +744,7 @@ class Diplobot:
             player.id, "Where should {} retreat to?".format(t),
             reply_markup=RKM(keyboard))
 
-    def retreat_msg_handler(bot, update, game, player):
+    def retreat_msg_handler(self, bot, update, game, player):
         s = update.message.text.strip().upper()
 
         try:
@@ -799,11 +799,11 @@ class Diplobot:
         player.retreat_choices[i] = (t1, k, t2)
         show_retreats_prompt(bot, game, player)
 
-    def retreats_ready_check(bot, game):
+    def retreats_ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
             execute_retreats(bot, game)
 
-    def execute_retreats(bot, game):
+    def execute_retreats(self, bot, game):
         retreats = set()
         destroyed = set()
 
@@ -872,7 +872,7 @@ class Diplobot:
             game.advance()
             turn_start(bot, game)
 
-    def check_victory(bot, game):
+    def check_victory(self, bot, game):
         if len(game.players) == 1:
             winner = next(p for p in game.players.values())
 
@@ -898,11 +898,11 @@ class Diplobot:
 
         return True
 
-    def distance_from_home(t, nation):
+    def distance_from_home(self, t, nation):
         distances = full_graph.distances(t)
         return min(distances[hsc] for hsc in home_centers[nation])
 
-    def auto_disband(board, nation, n):
+    def auto_disband(self, board, nation, n):
         candidates = sorted(
             (
                 distance_from_home(t, nation),
@@ -921,7 +921,7 @@ class Diplobot:
             board[t].kind = None
             board[t].coast = None
 
-    def update_centers(bot, game):
+    def update_centers(self, bot, game):
         game.state = "BUILDING_PHASE"
 
         bot.send_message(game.chat_id, "Updating supply centers...")
@@ -995,7 +995,7 @@ class Diplobot:
 
         units_ready_check(bot, game)
 
-    def show_units_menu(bot, game, player):
+    def show_units_menu(self, bot, game, player):
         if player.units_disbanding:
             bot.send_message(
                 player.id,
@@ -1014,7 +1014,7 @@ class Diplobot:
 
             show_build_prompt(bot, game, player)
 
-    def show_disband_prompt(bot, game, player):
+    def show_disband_prompt(self, bot, game, player):
         if not player.units_delta:
             message = ("These units will be disbanded: {}\n"
                        "Are you sure?".format(
@@ -1039,7 +1039,7 @@ class Diplobot:
 
         bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
-    def format_build(choices):
+    def format_build(self, choices):
         s = ""
 
         for t, k, c in choices:
@@ -1048,7 +1048,7 @@ class Diplobot:
 
         return s
 
-    def show_build_prompt(bot, game, player):
+    def show_build_prompt(self, bot, game, player):
         try:
             t, k, c = player.units_choices[-1]
         except IndexError:
@@ -1099,7 +1099,7 @@ class Diplobot:
 
         bot.send_message(player.id, message, reply_markup=RKM(keyboard))
 
-    def disband_msg_handler(bot, update, game, player):
+    def disband_msg_handler(self, bot, update, game, player):
         s = update.message.text.strip().upper()
 
         message = None
@@ -1144,7 +1144,7 @@ class Diplobot:
 
         show_disband_prompt(bot, game, player)
 
-    def build_msg_handler(bot, update, game, player):
+    def build_msg_handler(self, bot, update, game, player):
         s = update.message.text.strip().upper()
 
         if (player.units_choices
@@ -1225,11 +1225,11 @@ class Diplobot:
 
         show_build_prompt(bot, game, player)
 
-    def units_ready_check(bot, game):
+    def units_ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
             execute_builds_and_disbands(bot, game)
 
-    def execute_builds_and_disbands(bot, game):
+    def execute_builds_and_disbands(self, bot, game):
         for p in game.players.values():
             if p.units_disbanding:
                 for t in p.units_choices:
@@ -1246,7 +1246,7 @@ class Diplobot:
         game.advance()
         turn_start(bot, game)
 
-    def general_group_msg_handler(bot, update):
+    def general_group_msg_handler(self, bot, update):
         try:
             game = games[update.message.chat.id]
         except KeyError:
@@ -1255,7 +1255,7 @@ class Diplobot:
         if game.state == "CHOOSING_YEAR":
             year_msg_handler(bot, update, game)
 
-    def general_private_msg_handler(bot, update):
+    def general_private_msg_handler(self, bot, update):
         player_id = update.message.chat.id
 
         try:
@@ -1283,7 +1283,7 @@ class Diplobot:
                 else:
                     build_msg_handler(bot, update, game, player)
 
-    def error_handler(bot, update, error):
+    def error_handler(self, bot, update, error):
         self.logger.warning("Got \"%s\" error while processing update:\n%s\n", error, pprint.pformat(update))
 
     cmd_re = re.compile("^(.*)_cmd$")
