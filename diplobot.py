@@ -69,14 +69,6 @@ class Diplobot:
     def __init__(self):
         self.games = {}
 
-    def game_by_player(self, player_id):
-        try:
-            game = next(g for g in games.values() if player_id in g.players)
-        except StopIteration:
-            raise KeyError
-
-        return game
-
     def print_board(self, bot, game):
         bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
 
@@ -1172,7 +1164,7 @@ class Diplobot:
         player_id = update.message.chat.id
 
         try:
-            game = game_by_player(player_id)
+            game = find_game_by_player_id(self.games.values(), player_id)
         except KeyError:
             return
 

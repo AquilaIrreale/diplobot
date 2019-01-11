@@ -99,3 +99,11 @@ class Game:
 
     def date(self):
         return self.season() + " " + self.printable_year()
+
+
+def find_game_by_player_id(games, player_id):
+    try:
+        return next(g for g in games if player_id in g.players)
+
+    except StopIteration:
+        raise KeyError("Player `{}' not found".format(player_id))

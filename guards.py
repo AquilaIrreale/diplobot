@@ -18,6 +18,9 @@
   ############################################################################
 
 
+from game import find_game_by_player_id
+
+
 def group_chat(f):
     def wrapper(self, bot, update):
         if update.message.chat.type == "group":
@@ -81,9 +84,9 @@ def player_in_game(f):
         p_id = update.message.chat.id
 
         try:
-            game = next(g for g in self.games.values() if p_id in g.players)
+            game = find_game_by_player_id(self.games.values(), p_id)
 
-        except StopIteration:
+        except KeyError:
             update.message.reply_text("You need to join a game to use this command")
 
         else:
