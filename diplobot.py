@@ -237,7 +237,7 @@ class Diplobot:
             error = True
 
         if error or game.state != "CHOOSING_NATIONS":
-            update.callback_query.answer("This control is no longer valid")
+            update.callback_query.answer("This control is no longer active")
             update.callback_query.message.edit_reply_markup()
             return
 
