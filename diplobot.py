@@ -45,14 +45,24 @@ from telegram.ext import (Updater,
 
 from telegram.error import BadRequest, TimedOut
 
-import guards
-
 from utils import make_grid
 from board import *
 from order import *
 from game import *
 from adjudicator import adjudicate
 from graphics import render_board
+
+from guards import (group_chat,
+                    private_chat,
+                    game_in_chat,
+                    no_game_in_chat,
+                    player_in_this_game,
+                    player_in_game,
+                    game_state,
+                    player_ready,
+                    player_not_ready,
+                    player_not_building_order,
+                    player_not_deleting_orders)
 
 
 class Diplobot:
@@ -103,7 +113,14 @@ class Diplobot:
     def help_cmd(self, bot, update):
         update.message.reply_text("There's no help right now", quote=False)
 
-    def newgame(self, bot, chat_id, from_id):
+    @group_chat
+    @no_game_in_chat
+    def newgame_cmd(self, bot, update):
+        chat_id = update.message.chat.id
+        from_id = update.message.from_user.id
+
+        #TODO: vote?
+
         new_game = Game(chat_id)
         games[chat_id] = new_game
 
@@ -117,67 +134,11 @@ class Diplobot:
         handle = player.get_handle(bot, chat_id)
         bot.send_message(chat_id, handle + " joined the game")
 
-    def newgame_cmd(self, bot, update):
-        try:
-            guards.group_chat(update)
-        except HandlerGuard:
-            return
-
-        chat_id = update.message.chat.id
-        from_id = update.message.from_user.id
-
-        if chat_id not in games:
-            newgame(bot, chat_id, from_id)
-            return
-
-        update.message.reply_text("A game is already running in this chat", quote=False)
-
-        #TODO: vote?
-
-        #game = games[chat_id]
-        #
-        #if from_id == game.adj_id:
-        #    newgame_yes = IKB("Yes", callback_data="NEWGAME_YES")
-        #    newgame_no  = IKB("No", callback_data="NEWGAME_NO")
-
-        #    newgame_yesno = IKM([[newgame_yes, newgame_no]])
-
-        #    update.message.reply_text("Would you like to start over?",
-        #                              reply_markup = newgame_yesno, quote=False)
-
-    #def newgame_cbh(bot, update):
-    #    global games
-    #
-    #    chat_id = update.callback_query.message.chat.id
-    #    from_id = update.callback_query.from_user.id
-    #
-    #    if chat_id not in games:
-    #        update.callback_query.answer("Something went wrong")
-    #        return
-    #
-    #    game = games[chat_id]
-    #
-    #    if from_id != game.adj_id:
-    #        update.callback_query.answer("Only the adjudicator can use this button", show_alert = True)
-    #        return
-    #
-    #    update.callback_query.answer()
-    #    update.callback_query.message.edit_reply_markup()
-    #
-    #    if update.callback_query.data == "NEWGAME_YES":
-    #        update.callback_query.message.reply_text("Game closed")
-    #        newgame(bot, chat_id, from_id)
-
-    def closegame_cmd(self, bot, update):
-        try:
-            guards.group_chat(update)
-            guards.game_exists(update)
-        except HandlerGuard:
-            return
-
+    @group_chat
+    @game_in_chat
+    @player_in_this_game
+    def closegame_cmd(self, bot, update, game, player):
         # TODO: vote to close!
-
-        game = games[update.message.chat.id]
 
         if game.assigning:
             try:
@@ -185,26 +146,18 @@ class Diplobot:
             except BadRequest:
                 pass
 
-        del games[update.message.chat.id]
+        del games[game.chat_id]
 
         for p in game.players.values():
             bot.send_message(p.id, "Game closed", reply_markup=RKRemove())
 
         update.message.reply_text("Game closed", quote=False)
 
-    def join_cmd(self, bot, update):
-        try:
-            guards.group_chat(update)
-            guards.game_exists(update)
-        except HandlerGuard:
-            return
-
-        chat_id = update.message.chat.id
+    @group_chat
+    @game_in_chat
+    def join_cmd(self, bot, update, game):
         user_id = update.message.from_user.id
-
         handle = "@" + update.message.from_user.username
-
-        game = games[chat_id]
 
         if game.state != "NEW":
             update.message.reply_text(
@@ -227,8 +180,8 @@ class Diplobot:
 
         player = game.add_player(user_id, bot)
 
-        handle = player.get_handle(bot, chat_id)
-        bot.send_message(chat_id, handle + " joined the game")
+        handle = player.get_handle(bot, game.chat_id)
+        bot.send_message(game.chat_id, handle + " joined the game")
 
         if not game.is_full():
             return
@@ -236,14 +189,11 @@ class Diplobot:
         update.message.reply_text("All the players have joined", quote=False)
         startgame(bot, game)
 
-    def startgame_cmd(self, bot, update):
-        try:
-            guards.game_exists(update)
-        except HandlerGuard:
-            return
-
-        game = games[update.message.chat.id]
-
+    @group_chat
+    @game_in_chat
+    @player_in_this_game
+    @game_state("NEW")
+    def startgame_cmd(self, bot, update, game, player):
         #TODO: uncomment this!
         #if len(game.players) < 2:
         #    update.message.reply_text(
@@ -419,21 +369,13 @@ class Diplobot:
 
         bot.send_message(player.id, message, reply_markup=RKRemove())
 
-    def new_cmd(self, bot, update):
-        try:
-            guards.private_chat(update)
-
-            game = guards.player_in_game(update)
-            guards.game_status(update, game, "ORDER_PHASE")
-
-            player = game.players[update.message.chat.id]
-            guards.player_not_ready(update, player)
-            guards.player_not_building_order(update, player)
-            guards.player_not_deleting_orders(update, player)
-
-        except HandlerGuard:
-            return
-
+    @private_chat
+    @player_in_game
+    @game_state("ORDER_PHASE")
+    @player_not_ready
+    @player_not_building_order
+    @player_not_deleting_orders
+    def new_cmd(self, bot, update, game, player):
         if not player.builder.unordered():
             update.message.reply_text("You have already sent orders to all of your units. "
                                       "/delete the orders you want to change, or send /ready "
@@ -493,23 +435,14 @@ class Diplobot:
             else:
                 show_order_menu(bot, game, player, ntf)
 
-    def delete_cmd(self, bot, update):
-        try:
-            guards.private_chat(update)
-
-            game = guards.player_in_game(update)
-            guards.game_status(update, game, "ORDER_PHASE")
-
-            player = game.players[update.message.chat.id]
-            guards.player_not_ready(update, player)
-            guards.player_not_building_order(update, player)
-            guards.player_not_deleting_orders(update, player)
-
-        except HandlerGuard:
-            return
-
+    @private_chat
+    @player_in_game
+    @game_state("ORDER_PHASE")
+    @player_not_ready
+    @player_not_building_order
+    @player_not_deleting_orders
+    def delete_cmd(self, bot, update, game, player):
         update.message.reply_text("Which orders do you want to delete? (back to abort)")
-
         player.deleting = True
 
     parse_delete_num_re = re.compile(r"^(\d+)$")
@@ -561,44 +494,24 @@ class Diplobot:
 
         show_command_menu(bot, game, player)
 
-    def ready_cmd(self, bot, update):
-        try:
-            guards.private_chat(update)
-
-            game = guards.player_in_game(update)
-            guards.game_status(update, game, "ORDER_PHASE")
-
-            player = game.players[update.message.chat.id]
-            guards.player_not_ready(update, player)
-            guards.player_not_building_order(update, player)
-            guards.player_not_deleting_orders(update, player)
-
-        except HandlerGuard:
-            return
-
+    @private_chat
+    @player_in_game
+    @game_state("ORDER_PHASE")
+    @player_not_ready
+    @player_not_building_order
+    @player_not_deleting_orders
+    def ready_cmd(self, bot, update, game, player):
         update.message.reply_text("Orders committed. Withdraw with /unready")
-
         player.ready = True
-
         ready_check(bot, game)
 
-    def unready_cmd(self, bot, update):
-        try:
-            guards.private_chat(update)
-
-            game = guards.player_in_game(update)
-            guards.game_status(update, game, "ORDER_PHASE")
-
-            player = game.players[update.message.chat.id]
-            guards.player_ready(update, player)
-
-        except HandlerGuard:
-            return
-
+    @private_chat
+    @player_in_game
+    @game_state("ORDER_PHASE")
+    @player_ready
+    def unready_cmd(self, bot, update, game, player):
         update.message.reply_text("Orders withdrawn")
-
         player.ready = False
-
         show_command_menu(bot, game, player)
 
     def ready_check(self, bot, game):
