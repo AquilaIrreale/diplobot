@@ -40,15 +40,38 @@ def private_chat(f):
     return wrapper
 
 
-def game_exists(f):
+def game_in_chat(f):
     def wrapper(self, bot, update):
-        if update.message.chat.id in self.games:
-            f(self, bot, update)
+        try:
+            f(self, bot, update, self.games[update.message.chat.id])
 
-        else:
+        except KeyError:
             update.message.reply_text(
                 "There is no game currently running in this chat\n"
                 "Start one with /newgame!")
+
+    return wrapper
+
+
+def no_game_in_chat(f):
+    def wrapper(self, bot, update):
+        if update.message.chat.id not in self.games:
+            f(self, bot, update)
+
+        else:
+            update.message.reply_text("A game is already running in this chat")
+
+    return wrapper
+
+
+def player_in_this_game(f):
+    def wrapper(self, bot, update, game):
+        try:
+            f(self, bot, update, game,
+              game.players[update.message.from_user.id])
+
+        except KeyError:
+            update.message.reply_text("You are not a player in this game")
 
     return wrapper
 
@@ -69,10 +92,10 @@ def player_in_game(f):
     return wrapper
 
 
-def game_state(state):
+def game_state(*states):
     def decorator(f):
         def wrapper(self, bot, update, game, player):
-            if game.state == state:
+            if game.state in states:
                 f(self, bot, update, game, player)
 
             else:
