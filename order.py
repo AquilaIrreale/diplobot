@@ -24,9 +24,7 @@ from functools import total_ordering
 from telegram import ReplyKeyboardMarkup as RKM
 
 from utils import make_grid
-from board import (coasts,
-                   land_graph,
-                   offshore,
+from board import (offshore,
                    sea_graph,
                    split_coasts,
                    terr_names,

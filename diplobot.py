@@ -21,12 +21,10 @@
 
 import os
 import re
-import time
 import random
 import pprint
 import logging
 
-from copy import copy
 from operator import attrgetter, itemgetter
 from functools import partial
 
@@ -45,12 +43,18 @@ from telegram.ext import (Updater,
 
 from telegram.error import BadRequest, TimedOut
 
-from utils import make_grid
-from board import *
-from order import *
-from game import *
 from adjudicator import adjudicate
+from game import find_game_by_player_id, Game
 from graphics import render_board
+from order import BuilderError, split_coasts, terr_names
+from utils import make_grid
+
+from board import (chain,
+                   full_graph,
+                   home_centers,
+                   infer_kind,
+                   nations,
+                   supp_centers)
 
 from guards import (group_chat,
                     private_chat,

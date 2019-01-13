@@ -23,6 +23,7 @@ from operator import attrgetter
 from board import Board
 from order import OrderBuilder
 
+
 class Player:
     def __init__(self, player_id, board):
         self.id = player_id
