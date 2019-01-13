@@ -114,7 +114,7 @@ class Diplobot:
         #TODO: vote?
 
         new_game = Game(chat_id)
-        games[chat_id] = new_game
+        self.games[chat_id] = new_game
 
         bot.send_message(chat_id,
                          "A new <i>Diplomacy</i> game is starting!\n"
@@ -138,7 +138,7 @@ class Diplobot:
             except BadRequest:
                 pass
 
-        del games[game.chat_id]
+        del self.games[game.chat_id]
 
         for p in game.players.values():
             bot.send_message(p.id, "Game closed", reply_markup=RKRemove())
@@ -163,7 +163,7 @@ class Diplobot:
 
             return
 
-        for g in games.values():
+        for g in self.games.values():
             if user_id in g.players:
                 update.message.reply_text(
                     handle + " you are in another game already", quote=False)
@@ -179,7 +179,7 @@ class Diplobot:
             return
 
         update.message.reply_text("All the players have joined", quote=False)
-        startgame(bot, game)
+        self.startgame(bot, game)
 
     @group_chat
     @game_in_chat
@@ -193,13 +193,13 @@ class Diplobot:
         #
         #    return
 
-        startgame(bot, game)
+        self.startgame(bot, game)
 
     def startgame(self, bot, game):
         game.state = "CHOOSING_NATIONS"
 
         bot.send_message(game.chat_id, "The game will begin shortly...")
-        show_nations_menu(bot, game)
+        self.show_nations_menu(bot, game)
 
     def show_nations_menu(self, bot, game):
         players = game.players.values()
@@ -209,7 +209,7 @@ class Diplobot:
                 [p for p in players if p.nation is None])
 
         except IndexError:
-            nations_menu_finalize(bot, game)
+            self.nations_menu_finalize(bot, game)
             return
 
         taken = {p.nation for p in players}
@@ -232,7 +232,7 @@ class Diplobot:
         error = False
 
         try:
-            game = games[update.callback_query.message.chat.id]
+            game = self.games[update.callback_query.message.chat.id]
         except KeyError:
             error = True
 
@@ -267,7 +267,7 @@ class Diplobot:
         else:
             raise e
 
-        show_nations_menu(bot, game)
+        self.show_nations_menu(bot, game)
 
     def nations_menu_finalize(self, bot, game):
         game.assigning = None
@@ -282,7 +282,7 @@ class Diplobot:
             if p.nation == "RANDOM":
                 p.nation = available.pop()
 
-        show_year_menu(bot, game)
+        self.show_year_menu(bot, game)
 
     def show_year_menu(self, bot, game):
         bot.send_message(game.chat_id, "What year should the game begin in?")
@@ -293,7 +293,7 @@ class Diplobot:
 
     def year_msg_handler(self, bot, update, game):
         text = update.message.text.strip()
-        match = year_re.match(text)
+        match = self.year_re.match(text)
 
         if match:
             year = int(match.group(1))
@@ -308,14 +308,14 @@ class Diplobot:
 
         game.year = year
 
-        show_timeout_menu(bot, game)
+        self.show_timeout_menu(bot, game)
 
     def show_timeout_menu(self, bot, game):
         game.state = "CHOOSING_TIMEOUT"
 
         # TODO: implement this
 
-        game_start(bot, game)
+        self.game_start(bot, game)
 
     def game_start(self, bot, game):
         start_message = "<b>Nations have been assigned as follows:</b>\n\n"
@@ -327,10 +327,10 @@ class Diplobot:
 
         bot.send_message(game.chat_id, start_message, parse_mode=ParseMode.HTML)
 
-        turn_start(bot, game)
+        self.turn_start(bot, game)
 
     def turn_start(self, bot, game):
-        print_board(bot, game)
+        self.print_board(bot, game)
 
         game.state = "ORDER_PHASE"
 
@@ -345,7 +345,7 @@ class Diplobot:
                 p.id, "<b>Awaiting orders for {}</b>".format(game.date()),
                 parse_mode=ParseMode.HTML)
 
-            show_command_menu(bot, game, p)
+            self.show_command_menu(bot, game, p)
 
     def show_command_menu(self, bot, game, player):
         message = ""
@@ -376,7 +376,7 @@ class Diplobot:
 
         player.builder.new()
 
-        show_order_menu(bot, game, player)
+        self.show_order_menu(bot, game, player)
 
     order_menu_prompts = {
         "COAST": "North coast or south coast?",
@@ -400,7 +400,7 @@ class Diplobot:
             else:
                 prompt = "{}\nWho do you want to remove?".format(terrs)
         else:
-            prompt = order_menu_prompts[ntf]
+            prompt = self.order_menu_prompts[ntf]
 
         bot.send_message(
             player.id, prompt, reply_markup=player.builder.get_keyboard())
@@ -414,7 +414,7 @@ class Diplobot:
 
         except IndexError:
             player.builder.pop()
-            show_command_menu(bot, game, player)
+            self.show_command_menu(bot, game, player)
 
         except BuilderError as e:
             update.message.reply_text(e.message)
@@ -422,10 +422,10 @@ class Diplobot:
         else:
             if ntf == "DONE":
                 player.orders.update(player.builder.pop())
-                show_command_menu(bot, game, player)
+                self.show_command_menu(bot, game, player)
 
             else:
-                show_order_menu(bot, game, player, ntf)
+                self.show_order_menu(bot, game, player, ntf)
 
     @private_chat
     @player_in_game
@@ -444,8 +444,8 @@ class Diplobot:
         ss = s.split(",")
 
         for s in map(str.strip, ss):
-            match1 = parse_delete_num_re.match(s)
-            match2 = parse_delete_range_re.match(s)
+            match1 = self.parse_delete_num_re.match(s)
+            match2 = self.parse_delete_range_re.match(s)
 
             if match1:
                 a = int(match1.group(1))
@@ -466,11 +466,11 @@ class Diplobot:
     def delete_msg_handler(self, bot, update, game, player):
         if update.message.text.strip().upper() == "BACK":
             player.deleting = False
-            show_command_menu(bot, game, player)
+            self.show_command_menu(bot, game, player)
             return
 
         try:
-            ranges = set(parse_delete_msg(update.message.text, len(player.orders)))
+            ranges = set(self.parse_delete_msg(update.message.text, len(player.orders)))
         except ValueError:
             update.message.reply_text("Invalid input")
             return
@@ -484,7 +484,7 @@ class Diplobot:
         player.orders = set(filter(None, orders))
         player.deleting = False
 
-        show_command_menu(bot, game, player)
+        self.show_command_menu(bot, game, player)
 
     @private_chat
     @player_in_game
@@ -495,7 +495,7 @@ class Diplobot:
     def ready_cmd(self, bot, update, game, player):
         update.message.reply_text("Orders committed. Withdraw with /unready")
         player.ready = True
-        ready_check(bot, game)
+        self.ready_check(bot, game)
 
     @private_chat
     @player_in_game
@@ -504,12 +504,12 @@ class Diplobot:
     def unready_cmd(self, bot, update, game, player):
         update.message.reply_text("Orders withdrawn")
         player.ready = False
-        show_command_menu(bot, game, player)
+        self.show_command_menu(bot, game, player)
 
     def ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
             if game.state == "ORDER_PHASE":
-                run_adjudication(bot, game)
+                self.run_adjudication(bot, game)
 
     def run_adjudication(self, bot, game):
         game.state = "ADJUDICATING"
@@ -542,7 +542,7 @@ class Diplobot:
             if r and o.kind == "MOVE"
         }
 
-        apply_moves(game.board, successful_moves)
+        self.apply_moves(game.board, successful_moves)
 
         res_it = iter(resolutions)
         message = "<b>ORDERS - {}</b>\n\n".format(game.date())
@@ -579,7 +579,7 @@ class Diplobot:
         game.state = "RETREAT_PHASE"
 
         for p in game.players.values():
-            show_retreats_menu(bot, game, p)
+            self.show_retreats_menu(bot, game, p)
 
     def apply_moves(self, board, moves):
         nations = []
@@ -598,7 +598,7 @@ class Diplobot:
     def show_retreats_menu(self, bot, game, player):
         if not player.retreat_choices and not player.destroyed:
             player.ready = True
-            retreats_ready_check(bot, game)
+            self.retreats_ready_check(bot, game)
             return
 
         message = "<b>Some of you units have been dislodged</b>\n\n"
@@ -614,10 +614,10 @@ class Diplobot:
 
         if not player.retreat_choices:
             player.ready = True
-            retreats_ready_check(bot, game)
+            self.retreats_ready_check(bot, game)
             return
 
-        show_retreats_prompt(bot, game, player)
+        self.show_retreats_prompt(bot, game, player)
 
     def show_retreats_prompt(self, bot, game, player):
         try:
@@ -664,12 +664,12 @@ class Diplobot:
                 player.ready = True
                 update.message.reply_text(
                     "Retreats committed", reply_markup=RKRemove())
-                retreats_ready_check(bot, game)
+                self.retreats_ready_check(bot, game)
 
             elif s in {"N", "NO"}:
                 t1, k, t2 = player.retreat_choices[-1]
                 player.retreat_choices[-1] = (t1, k, None)
-                show_retreats_prompt(bot, game, player)
+                self.show_retreats_prompt(bot, game, player)
 
             else:
                 update.message.reply_text("Invalid input")
@@ -682,13 +682,13 @@ class Diplobot:
 
             else:
                 player.retreat_choices[i-1] = (t1, k, None)
-                show_retreats_prompt(bot, game, player)
+                self.show_retreats_prompt(bot, game, player)
 
             return
 
         if s == "DISBAND":
             player.retreat_choices[i] = (t1, k, False)
-            show_retreats_prompt(bot, game, player)
+            self.show_retreats_prompt(bot, game, player)
             return
 
         try:
@@ -702,11 +702,11 @@ class Diplobot:
             return
 
         player.retreat_choices[i] = (t1, k, t2)
-        show_retreats_prompt(bot, game, player)
+        self.show_retreats_prompt(bot, game, player)
 
     def retreats_ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
-            execute_retreats(bot, game)
+            self.execute_retreats(bot, game)
 
     def execute_retreats(self, bot, game):
         retreats = set()
@@ -772,10 +772,10 @@ class Diplobot:
             bot.send_message(game.chat_id, message)
 
         if game.autumn:
-            update_centers(bot, game)
+            self.update_centers(bot, game)
         else:
             game.advance()
-            turn_start(bot, game)
+            self.turn_start(bot, game)
 
     def check_victory(self, bot, game):
         if len(game.players) == 1:
@@ -799,7 +799,7 @@ class Diplobot:
                 winner.nation, winner.get_handle(bot, game.chat_id)),
             parse_mode=ParseMode.HTML)
 
-        del games[game.chat_id]
+        del self.games[game.chat_id]
 
         return True
 
@@ -810,7 +810,7 @@ class Diplobot:
     def auto_disband(self, board, nation, n):
         candidates = sorted(
             (
-                distance_from_home(t, nation),
+                self.distance_from_home(t, nation),
                 0 if board[t].kind == "F" else 1,
                 t.casefold(),
                 t
@@ -835,7 +835,7 @@ class Diplobot:
             if game.board[t].occupied:
                 game.board[t].owner = game.board[t].occupied
 
-        if check_victory(bot, game):
+        if self.check_victory(bot, game):
             return
 
         playing_nations = {p.nation: p for p in game.players.values()}
@@ -862,7 +862,7 @@ class Diplobot:
 
                 game.players = {k: v for k, v in game.players.items() if v is not p}
 
-                if check_victory(bot, game):
+                if self.check_victory(bot, game):
                     return
 
                 continue
@@ -872,7 +872,7 @@ class Diplobot:
 
             if not p:
                 if units_n > centers_n:
-                    auto_disband(game.board, n, units_n - centers_n)
+                    self.auto_disband(game.board, n, units_n - centers_n)
 
                 continue
 
@@ -896,9 +896,9 @@ class Diplobot:
             p.ready = not p.units_delta
 
             if not p.ready:
-                show_units_menu(bot, game, p)
+                self.show_units_menu(bot, game, p)
 
-        units_ready_check(bot, game)
+        self.units_ready_check(bot, game)
 
     def show_units_menu(self, bot, game, player):
         if player.units_disbanding:
@@ -908,7 +908,7 @@ class Diplobot:
                 "You have to disband {} of your units".format(
                     player.units_delta))
 
-            show_disband_prompt(bot, game, player)
+            self.show_disband_prompt(bot, game, player)
 
         else:
             bot.send_message(
@@ -917,7 +917,7 @@ class Diplobot:
                 "You can build up to {} new units".format(
                     player.units_delta))
 
-            show_build_prompt(bot, game, player)
+            self.show_build_prompt(bot, game, player)
 
     def show_disband_prompt(self, bot, game, player):
         if not player.units_delta:
@@ -975,11 +975,11 @@ class Diplobot:
 
             elif len(player.units_choices) == 1:
                 message = ("This new unit will be built:\n\n"
-                           + format_build(player.units_choices))
+                           + self.format_build(player.units_choices))
 
             else:
                 message = ("These new units will be built:\n\n"
-                           + format_build(player.units_choices))
+                           + self.format_build(player.units_choices))
 
             message += "\nAre you sure?"
 
@@ -997,7 +997,7 @@ class Diplobot:
 
             else:
                 message = ("Currently building:\n\n"
-                           + format_build(player.units_choices)
+                           + self.format_build(player.units_choices)
                            + "\nWhat else?")
 
                 keyboard.append(["Back"])
@@ -1019,7 +1019,7 @@ class Diplobot:
         elif player.units_delta == 0:
             if s in {"Y", "YES"}:
                 player.ready = True
-                units_ready_check(bot, game)
+                self.units_ready_check(bot, game)
                 return
 
             elif s in {"N", "NO"}:
@@ -1047,7 +1047,7 @@ class Diplobot:
             bot.send_message(player.id, message)
             return
 
-        show_disband_prompt(bot, game, player)
+        self.show_disband_prompt(bot, game, player)
 
     def build_msg_handler(self, bot, update, game, player):
         s = update.message.text.strip().upper()
@@ -1064,7 +1064,7 @@ class Diplobot:
             else:
                 player.units_delta += 1
 
-            show_build_prompt(bot, game, player)
+            self.show_build_prompt(bot, game, player)
             return
 
         message = None
@@ -1093,7 +1093,7 @@ class Diplobot:
         elif player.units_done or player.units_delta == 0:
             if s in {"Y", "YES"}:
                 player.ready = True
-                units_ready_check(bot, game)
+                self.units_ready_check(bot, game)
                 return
 
             elif s in {"N", "NO"}:
@@ -1128,11 +1128,11 @@ class Diplobot:
             bot.send_message(player.id, message)
             return
 
-        show_build_prompt(bot, game, player)
+        self.show_build_prompt(bot, game, player)
 
     def units_ready_check(self, bot, game):
         if all(p.ready for p in game.players.values()):
-            execute_builds_and_disbands(bot, game)
+            self.execute_builds_and_disbands(bot, game)
 
     def execute_builds_and_disbands(self, bot, game):
         for p in game.players.values():
@@ -1149,16 +1149,16 @@ class Diplobot:
                     game.board[t].coast = c
 
         game.advance()
-        turn_start(bot, game)
+        self.turn_start(bot, game)
 
     def general_group_msg_handler(self, bot, update):
         try:
-            game = games[update.message.chat.id]
+            game = self.games[update.message.chat.id]
         except KeyError:
             return
 
         if game.state == "CHOOSING_YEAR":
-            year_msg_handler(bot, update, game)
+            self.year_msg_handler(bot, update, game)
 
     def general_private_msg_handler(self, bot, update):
         player_id = update.message.chat.id
@@ -1173,20 +1173,20 @@ class Diplobot:
         if not player.ready:
             if game.state == "ORDER_PHASE":
                 if player.builder:
-                    order_msg_handler(bot, update, game, player)
+                    self.order_msg_handler(bot, update, game, player)
 
                 elif player.deleting:
-                    delete_msg_handler(bot, update, game, player)
+                    self.delete_msg_handler(bot, update, game, player)
 
             elif game.state == "RETREAT_PHASE":
-                retreat_msg_handler(bot, update, game, player)
+                self.retreat_msg_handler(bot, update, game, player)
 
             elif game.state == "BUILDING_PHASE":
                 if player.units_disbanding:
-                    disband_msg_handler(bot, update, game, player)
+                    self.disband_msg_handler(bot, update, game, player)
 
                 else:
-                    build_msg_handler(bot, update, game, player)
+                    self.build_msg_handler(bot, update, game, player)
 
     def error_handler(self, bot, update, error):
         self.logger.warning("Got \"%s\" error while processing update:\n%s\n", error, pprint.pformat(update))
@@ -1199,14 +1199,14 @@ class Diplobot:
             if not callable(member):
                 continue
 
-            m = cmd_re.match(member)
+            m = self.cmd_re.match(member)
             if m:
                 dispatcher.add_handler(
                     CommandHandler(
                         m.group(1),
                         partial(member, self)))
 
-            m = cbh_re.match(member)
+            m = self.cbh_re.match(member)
             if m:
                 dispatcher.add_handler(
                     CallbackQueryHandler(
@@ -1216,15 +1216,15 @@ class Diplobot:
         dispatcher.add_handler(
             MessageHandler(
                 Filters.text & Filters.group,
-                partial(general_group_msg_handler, self)))
+                partial(self.general_group_msg_handler, self)))
 
         dispatcher.add_handler(
             MessageHandler(
                 Filters.text & Filters.private,
-                partial(general_private_msg_handler, self)))
+                partial(self.general_private_msg_handler, self)))
 
         dispatcher.add_error_handler(
-            partial(error_handler, self))
+            partial(self.error_handler, self))
 
 
 def main():
