@@ -66,8 +66,9 @@ from guards import (group_chat,
 
 
 class Diplobot:
-    def __init__(self):
+    def __init__(self, logger):
         self.games = {}
+        self.logger = logger
 
     def print_board(self, bot, game):
         bot.send_chat_action(game.chat_id, ChatAction.UPLOAD_PHOTO)
