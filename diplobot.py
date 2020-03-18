@@ -519,72 +519,52 @@ class Diplobot:
     def run_adjudication(self, bot, game):
         game.state = "ADJUDICATING"
 
-        data = [
-            (p.nation, p.get_handle(bot, game.chat_id), sorted(p.orders))
-            for p in sorted(game.players.values(), key=attrgetter("nation"))
-        ]
+        orders, nations = zip(*game.list_orders())
+        resolutions, retreats, destroyed, dislodged, successful_moves = (
+            adjudicate(game.board, orders, nations))
 
-        orders = list(chain(*(os for n, h, os in data)))
-        resolutions, retreats = adjudicate(game.board, orders)
+        board.apply_moves(successful_moves)
 
-        for p in game.players.values():
-            dislodged = {t for t in retreats if game.board[t].occupied == p.nation}
+        for player in game.players.values():
+            player.retreats = retreats[player.nation]
+            player.destroyed = destroyed[player.nation]
+            player.ready = False
 
-            p.retreats = {t: retreats[t] for t in dislodged if retreats[t]}
-            p.destroyed = {t for t in dislodged if not retreats[t]}
+        message = ["<b>ORDERS - {}</b>".format(game.date())]
 
-            p.retreat_choices = [
-                (t, game.board[t].kind, None)
-                for t in sorted(dislodged, key=str.casefold)
-                if retreats[t]
-            ]
+        handles = {player.nation: player.get_handle(bot, game.chat_id)
+                   for player in game.players}
 
-            p.ready = False
+        old_nat = None
+        for nat, order, res in zip(nations, orders, resolutions):
+            if nat != old_nat:
+                message.append("\n{}: ({})".format(nat, handles[nat]))
+                old_nat = nat
 
-        successful_moves = {
-            (o.terr, o.targ)
-            for o, r in zip(orders, resolutions)
-            if r and o.kind == "MOVE"
-        }
+            mark = "\N{OK HAND SIGN}" if res else "\N{OPEN HANDS SIGN}"
 
-        self.apply_moves(game.board, successful_moves)
+            message.append("{} {}".format(order, mark))
 
-        res_it = iter(resolutions)
-        message = "<b>ORDERS - {}</b>\n\n".format(game.date())
-
-        no_orders = True
-
-        for n, h, os in data:
-            if not os:
-                continue
-
-            no_orders = False
-
-            message += "{}: ({})\n".format(n, h)
-
-            for o in os:
-                res_mark = ("\N{OK HAND SIGN}"
-                            if next(res_it)
-                            else "\N{OPEN HANDS SIGN}")
-
-                message += "{} {}\n".format(str(o), res_mark) #TODO: use long format
-
-            message += "\n"
-
-        if no_orders:
-            message += "None\n\n"
+        if old_nat is None:
+            message.append("\nNone")
 
         if retreats:
-            message += ("<b>These units have been dislodged:</b>\n"
-                        + ", ".join(sorted(retreats.keys(), key=str.casefold)) + "\n\n"
-                        + "Awaiting retreat orders")
+            message.append(
+                "\n"
+                "<b>These units have been dislodged:</b>\n"
+                "{}\n"
+                "Awaiting retreat orders".format(
+                    ", ".join(sorted(dislodged, key=str.casefold))))
 
-        bot.send_message(game.chat_id, message, parse_mode=ParseMode.HTML)
+        bot.send_message(
+            game.chat_id,
+            "\n".join(message),
+            parse_mode=ParseMode.HTML)
 
         game.state = "RETREAT_PHASE"
 
-        for p in game.players.values():
-            self.show_retreats_menu(bot, game, p)
+        for player in game.players.values():
+            self.show_retreats_menu(bot, game, player)
 
     def apply_moves(self, board, moves):
         nations = []

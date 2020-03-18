@@ -101,6 +101,11 @@ class Game:
     def date(self):
         return self.season() + " " + self.printable_year()
 
+    def list_orders(self):
+        for player in sorted(self.players.values()):
+            for order in sorted(player.orders):
+                yield order, player.nation
+
 
 def find_game_by_player_id(games, player_id):
     try:
