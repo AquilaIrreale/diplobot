@@ -21,7 +21,7 @@
 from operator import attrgetter
 
 from board import Board
-from order import OrderBuilder
+from orders import OrderBuilder
 
 
 class Player:

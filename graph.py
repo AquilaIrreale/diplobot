@@ -20,47 +20,51 @@
 
 import math
 import heapq
+from itertools import chain
 
 
 class Graph:
-    def __init__(self, graph_dict=None):
-        if graph_dict is None:
-            graph_dict = {}
+    def __init__(self, adj_dict={}):
+        if adj_dict is None:
+            adj_dict = {}
+        self.adj_dict = adj_dict
 
-        self._graph_dict = graph_dict
-
-    @property
-    def dict(self):
-        return self._graph_dict
+    @classmethod
+    def from_file(cls, file):
+        adj_dict = {}
+        for line in file:
+            line = line.strip()
+            if not line:
+                continue
+            t1, t2s = line.split(":", maxsplit=1)
+            t1 = t1.strip()
+            adj_dict[t1] = set(t2s.split())
+        return cls(adj_dict)
 
     def vertices(self):
-        return set(self._graph_dict.keys())
+        return set(self.adj_dict.keys())
 
     def edges(self):
         edges = set()
 
-        for v in self._graph_dict:
-            for neigh in self._graph_dict[v]:
+        for v in self.adj_dict:
+            for neigh in self.adj_dict[v]:
                 edges.add(frozenset((neigh, v)))
 
         return edges
 
     def add_vertex(self, v):
-        if v not in self._graph_dict:
-            self._graph_dict[v] = set()
+        self.adj_dict.setdefault(v, set())
 
-    def add_edge(self, edge):
-        edge = set(edge)
-        (v1, v2) = tuple(edge)
-        self._half_add_edge(v1, v2)
-        self._half_add_edge(v2, v1)
+    def add_edge(self, v1, v2):
+        for v in v1, v2:
+            if v not in self.adj_dict:
+                raise ValueError(f"{repr(v)} is not a vertex of this graph")
+        self._add_edge(v1, v2)
+        self._add_edge(v2, v1)
 
-    def _half_add_edge(self, v1, v2):
-        try:
-            self._graph_dict[v1].add(v2)
-
-        except KeyError:
-            self._graph_dict[v1] = {v2}
+    def _add_edge(self, v1, v2):
+        self.adj_dict[v1].add(v2)
 
     def neighbors(self, vs):
         if isinstance(vs, str):
@@ -69,7 +73,7 @@ class Graph:
         ret = set()
 
         for v in vs:
-            ret |= self._graph_dict[v]
+            ret |= self.adj_dict[v]
 
         return ret - set(vs)
 
@@ -130,6 +134,6 @@ class Graph:
 
     def __str__(self):
         return "Vertices: {}\nEdges: {}".format(
-            ", ".join(sorted(self._graph_dict.keys())),
+            ", ".join(sorted(self.adj_dict.keys())),
             ", ".join(sorted("({}, {})".format(*sorted(e)) for e in self.edges()))
         )

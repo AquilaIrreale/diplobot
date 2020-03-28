@@ -18,6 +18,13 @@
   ############################################################################
 
 
+def casefold_mapping(it):
+    return {
+        s.casefold(): s
+        for s in it
+    }
+
+
 def make_grid(l):
     r3 = len(l) % 3
     r4 = len(l) % 4

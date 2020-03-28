@@ -46,7 +46,7 @@ from telegram.error import BadRequest, TimedOut
 from adjudicator import adjudicate
 from game import find_game_by_player_id, Game
 from graphics import render_board
-from order import BuilderError, split_coasts, terr_names
+from orders import BuilderError, split_coasts, terr_names
 from utils import make_grid
 
 from board import (chain,
