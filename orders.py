@@ -42,6 +42,9 @@ class Order:
     def to_cdippy(self):
         raise NotImplementedError
 
+    def db_tuple(self):
+        raise NotImplementedError
+
     def _key(self):
         raise NotImplementedError
 
@@ -108,6 +111,13 @@ class HoldOrder(Order):
     def to_cdippy(self):
         raise NotImplementedError #TODO
 
+    def db_tuple(self):
+        return (
+            str(self.terr),
+            None,
+            None,
+            )
+
     def _key(self):
         return 0, self.terr
 
@@ -148,6 +158,9 @@ class SupHoldOrder(Order):
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
+
+    def db_tuple(self):
+        raise NotImplementedError
 
     def _key(self):
         return 0, self.targ, self.terr
@@ -194,6 +207,9 @@ class MoveOrder(Order):
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
+
+    def db_tuple(self):
+        raise NotImplementedError
 
     def _key(self):
         return 1, self.terr, self.targ.terr
@@ -244,6 +260,9 @@ class SupMoveOrder(Order):
     def to_cdippy(self):
         raise NotImplementedError #TODO
 
+    def db_tuple(self):
+        raise NotImplementedError
+
     def _key(self):
         return 1, self.orig, self.targ, 0, self.terr
 
@@ -291,6 +310,9 @@ class ConvOrder(Order):
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
+
+    def db_tuple(self):
+        raise NotImplementedError
 
     def _key(self):
         return 1, self.orig, self.targ, 1, self.terr
