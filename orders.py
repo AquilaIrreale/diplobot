@@ -55,6 +55,12 @@ class Order:
     def __hash__(self):
         return hash(self._key())
 
+    @classmethod
+    def types(cls):
+        if cls is not Order:
+            raise RuntimeError("This method can only be called on the Order class")
+        return cls.__subclasses__()
+
     @property
     def typestr():
         raise NotImplementedError
@@ -67,7 +73,7 @@ class Order:
         if cls is not Order:
             raise NotImplementedError
 
-        for OrdType in cls.__subclasses__():
+        for OrdType in cls.types():
             if OrdType.typestr == typestr:
                 return OrdType.from_db_tuple(unit, terr, orig, targ, coast, viac)
         else:
