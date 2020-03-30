@@ -203,7 +203,7 @@ class MoveOrder(Order):
     def __str__(self):
         return (
             f"{self.unit} {self.terr}-{self.targ}"
-            + " C" if self.viac else "")
+            + (" C" if self.viac else ""))
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
