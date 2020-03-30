@@ -59,6 +59,7 @@ CREATE TABLE orders (
     terr TEXT,
     orig TEXT,
     targ TEXT,
+    coast TEXT,
     viac BOOL,
     PRIMARY KEY (game_id, player_id, terr)
 );
