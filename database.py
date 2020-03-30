@@ -21,6 +21,8 @@
 from pathlib import Path
 import sqlite3
 
+from orders import Order
+
 
 db_file = "diplobot.db"
 
@@ -65,19 +67,8 @@ CREATE TABLE orders (
 );
 """
 
-db_exists = Path(db_file).exists()
 
-db = sqlite3.connect("diplobot.db")
-c = db.cursor()
-c.execute("PRAGMA foreign_keys = ON")
-db.commit()
-
-c.execute("PRAGMA foreign_keys")
-resp = c.fetchone()
-if resp is None or resp != (1,):
-    raise RuntimeError("sqlite3 implementation doesn't support foreign keys")
-
-if not db_exists:
+def load_schema():
     c = db.cursor()
     for stmt in schema.split(";"):
         if stmt := stmt.strip():
@@ -85,5 +76,67 @@ if not db_exists:
     db.commit()
 
 
-def store_order(game_id, player_id, order):
-    raise NotImplementedError #TODO
+def enable_foreign_keys():
+    c = db.cursor()
+    c.execute("PRAGMA foreign_keys = ON")
+    db.commit()
+    c.execute("PRAGMA foreign_keys")
+    resp = c.fetchone()
+    if resp is None or resp != (1,):
+        raise RuntimeError("sqlite3 implementation doesn't support foreign keys")
+
+
+def disable_foreign_keys():
+    c = db.cursor()
+    c.execute("PRAGMA foreign_keys = OFF")
+    db.commit()
+
+
+def qmarks(n):
+    return ", ".join(("?",) * n)
+
+
+def store_orders(game_id, player_id, *orders):
+    c = db.cursor()
+    for order in orders:
+        db_tuple = order.to_db_tuple()
+        c.execute(
+            "INSERT INTO orders"
+            "(game_id, player_id, type, unit, terr, orig, targ, coast, viac) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (game_id, player_id, *db_tuple))
+    db.commit()
+
+
+def retrieve_orders(game_id, player_id=None, order_types=None):
+    order_types = [
+        (o.typestr if issubclass(o, Order) else o)
+        for o in order_types
+    ]
+
+    query = (
+        "SELECT type, unit, terr, orig, targ, coast, viac "
+        "FROM orders "
+        "WHERE game_id=?")
+    params = (game_id,)
+
+    if player_id is not None:
+        query += " AND player_id=?"
+        params += (player_id,)
+
+    if order_types is not None:
+        query += f" AND type IN ({qmarks(len(order_types))})"
+        params += tuple(order_types)
+
+    c = db.cursor()
+    c.execute(query, params)
+    while db_tuple := c.fetchone():
+        yield Order.from_db_tuple(*db_tuple)
+
+
+db_exists = Path(db_file).exists()
+db = sqlite3.connect("diplobot.db")
+enable_foreign_keys()
+
+if not db_exists:
+    load_schema()

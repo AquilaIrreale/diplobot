@@ -39,12 +39,6 @@ class Order:
     def __str__(self):
         raise NotImplementedError
 
-    def to_cdippy(self):
-        raise NotImplementedError
-
-    def db_tuple(self):
-        raise NotImplementedError
-
     def _key(self):
         raise NotImplementedError
 
@@ -60,6 +54,29 @@ class Order:
 
     def __hash__(self):
         return hash(self._key())
+
+    @property
+    def typestr():
+        raise NotImplementedError
+
+    def to_db_tuple(self):
+        raise NotImplementedError
+
+    @classmethod
+    def from_db_tuple(cls, typestr, unit, terr, orig, targ, coast, viac):
+        if cls is not Order:
+            raise NotImplementedError
+
+        for OrdType in cls.__subclasses__():
+            if OrdType.typestr == typestr:
+                return OrdType.from_db_tuple(unit, terr, orig, targ, coast, viac)
+        else:
+            t = (typestr, unit, terr, orig, targ, viac)
+            raise ValueError(
+                f"{repr(t)} does not look like an order")
+
+    def to_cdippy(self):
+        raise NotImplementedError
 
     @classmethod
     def parse(cls, s):
@@ -108,18 +125,27 @@ class HoldOrder(Order):
     def __str__(self):
         return f"{self.unit} {self.terr} H"
 
-    def to_cdippy(self):
-        raise NotImplementedError #TODO
+    def _key(self):
+        return 0, self.terr
 
-    def db_tuple(self):
+    typestr = "HOLD"
+
+    def to_db_tuple(self):
         return (
+            self.typestr,
+            str(self.unit),
             str(self.terr),
             None,
             None,
-            )
+            None,
+            None)
 
-    def _key(self):
-        return 0, self.terr
+    @classmethod
+    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
+        return cls(unit, terr)
+
+    def to_cdippy(self):
+        raise NotImplementedError #TODO
 
     RE = re_build(
         RE_UNIT,
@@ -156,14 +182,27 @@ class SupHoldOrder(Order):
             f"{self.unit} {self.terr} "
             f"S {self.targ}")
 
-    def to_cdippy(self):
-        raise NotImplementedError #TODO
-
-    def db_tuple(self):
-        raise NotImplementedError
-
     def _key(self):
         return 0, self.targ, self.terr
+
+    typestr = "SUPH"
+
+    def to_db_tuple(self):
+        return (
+            self.typestr,
+            str(self.unit),
+            str(self.terr),
+            None,
+            str(self.targ),
+            None,
+            None)
+
+    @classmethod
+    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
+        return cls(unit, terr, targ)
+
+    def to_cdippy(self):
+        raise NotImplementedError #TODO
 
     RE = re_build(
         RE_UNIT,
@@ -205,14 +244,27 @@ class MoveOrder(Order):
             f"{self.unit} {self.terr}-{self.targ}"
             + (" C" if self.viac else ""))
 
-    def to_cdippy(self):
-        raise NotImplementedError #TODO
-
-    def db_tuple(self):
-        raise NotImplementedError
-
     def _key(self):
         return 1, self.terr, self.targ.terr
+
+    typestr = "MOVE"
+
+    def to_db_tuple(self):
+        return (
+            self.typestr,
+            str(self.unit),
+            str(self.terr),
+            None,
+            str(self.targ.terr),
+            str(self.targ.coast),
+            self.viac)
+
+    @classmethod
+    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
+        return cls(unit, terr, targ, coast, viac)
+
+    def to_cdippy(self):
+        raise NotImplementedError #TODO
 
     RE = re_build(
         RE_UNIT,
@@ -257,14 +309,27 @@ class SupMoveOrder(Order):
             f"{self.unit} {self.terr} "
             f"S {self.orig}-{self.targ}")
 
-    def to_cdippy(self):
-        raise NotImplementedError #TODO
-
-    def db_tuple(self):
-        raise NotImplementedError
-
     def _key(self):
         return 1, self.orig, self.targ, 0, self.terr
+
+    typestr = "SUPM"
+
+    def to_db_tuple(self):
+        return (
+            self.typestr,
+            str(self.unit),
+            str(self.terr),
+            str(self.orig),
+            str(self.targ),
+            None,
+            None)
+
+    @classmethod
+    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
+        return cls(unit, terr, orig, targ)
+
+    def to_cdippy(self):
+        raise NotImplementedError #TODO
 
     RE = re_build(
         RE_UNIT,
@@ -308,14 +373,27 @@ class ConvOrder(Order):
             f"{self.unit} {self.terr} "
             f"C {self.orig}-{self.targ}")
 
-    def to_cdippy(self):
-        raise NotImplementedError #TODO
-
-    def db_tuple(self):
-        raise NotImplementedError
-
     def _key(self):
         return 1, self.orig, self.targ, 1, self.terr
+
+    typestr = "CONV"
+
+    def to_db_tuple(self):
+        return (
+            self.typestr,
+            str(self.unit),
+            str(self.terr),
+            str(self.orig),
+            str(self.targ),
+            None,
+            None)
+
+    @classmethod
+    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
+        return cls(unit, terr, orig, targ)
+
+    def to_cdippy(self):
+        raise NotImplementedError #TODO
 
     RE = re_build(
         RE_UNIT,
