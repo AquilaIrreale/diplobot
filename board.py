@@ -92,8 +92,8 @@ class Coast(UserString):
     def __hash__(self):
         return hash(str(self))
 
-    def paren_form(self):
-        return f"({self})"
+    def parens_form(self):
+        return f"({self})" if self else ""
 
 
 @total_ordering
@@ -149,7 +149,7 @@ class TerrCoast(UserString):
         return f"TerrCoast({repr(self.terr)}, {repr(self.coast)})"
 
     def __str__(self):
-        return str(self.terr) + self.coast.paren_form()
+        return str(self.terr) + self.coast.parens_form()
 
     def __eq__(self, other):
         return (self.terr, self.coast) == (other.terr, other.coast)
