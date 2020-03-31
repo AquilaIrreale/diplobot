@@ -53,16 +53,18 @@ CREATE TABLE centers (
     PRIMARY KEY (game_id, terr)
 );
 CREATE TABLE orders (
-    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    player_id INTEGER NOT NULL REFERENCES players(id),
+    game_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
     type TEXT NOT NULL,
     unit TEXT NOT NULL,
-    terr TEXT,
+    terr TEXT NOT NULL,
     orig TEXT,
     targ TEXT,
     coast TEXT,
     viac BOOL,
-    PRIMARY KEY (game_id, player_id, terr)
+    PRIMARY KEY (game_id, player_id, terr),
+    FOREIGN KEY (game_id, player_id)
+        REFERENCES players(game_id, id) ON DELETE CASCADE
 );
 """
 
