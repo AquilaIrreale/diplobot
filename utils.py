@@ -18,6 +18,10 @@
   ############################################################################
 
 
+def qmarks(n):
+    return ", ".join(("?",) * n)
+
+
 def casefold_mapping(it):
     return {
         s.casefold(): s

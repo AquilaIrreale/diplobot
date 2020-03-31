@@ -21,11 +21,8 @@
 from pathlib import Path
 import sqlite3
 
+from utils import qmarks
 from orders import Order
-
-
-def qmarks(n):
-    return ", ".join(("?",) * n)
 
 
 schema = """
