@@ -96,12 +96,18 @@ def disable_foreign_keys():
 def store_orders(game_id, player_id, *orders):
     c = db.cursor()
     for order in orders:
-        db_tuple = order.to_db_tuple()
+        terr, *rest = order.to_db_tuple()
+        c.execute(
+            "DELETE FROM orders "
+            "WHERE game_id = ? "
+            "AND player_id = ?"
+            "AND terr = ?",
+            (game_id, player_id, str(terr)))
         c.execute(
             "INSERT INTO orders"
             "(game_id, player_id, type, unit, terr, orig, targ, coast, viac) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (game_id, player_id, *db_tuple))
+            (game_id, player_id, terr, *db_tuple))
     db.commit()
 
 
