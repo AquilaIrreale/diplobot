@@ -24,7 +24,9 @@ import sqlite3
 from orders import Order
 
 
-db_file = "diplobot.db"
+def qmarks(n):
+    return ", ".join(("?",) * n)
+
 
 schema = """
 CREATE TABLE games (
@@ -92,10 +94,6 @@ def disable_foreign_keys():
     db.commit()
 
 
-def qmarks(n):
-    return ", ".join(("?",) * n)
-
-
 def store_orders(game_id, player_id, *orders):
     c = db.cursor()
     for order in orders:
@@ -134,8 +132,10 @@ def retrieve_orders(game_id, player_id=None, order_types=None):
         yield Order.from_db_tuple(*db_tuple)
 
 
+db_file = "diplobot.db"
+
 db_exists = Path(db_file).exists()
-db = sqlite3.connect("diplobot.db")
+db = sqlite3.connect(db_file)
 enable_foreign_keys()
 
 if not db_exists:
