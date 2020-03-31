@@ -32,7 +32,7 @@ schema = """
 CREATE TABLE games (
     id INTEGER NOT NULL PRIMARY KEY,
     start_date INTEGER NOT NULL,
-    date INTEGER NOT NULL,
+    game_date INTEGER NOT NULL,
     state TEXT NOT NULL
 );
 CREATE TABLE players (
