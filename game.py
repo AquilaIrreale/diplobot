@@ -18,6 +18,18 @@
   ############################################################################
 
 
+from utils import StrEnum
+from enum import auto
+
+
+class GameState(StrEnum):
+    CREATED = auto()
+    MAIN = auto()
+    RETREAT = auto()
+    BUILD = auto()
+    DEFAULT = CREATED
+
+
 #from operator import attrgetter
 #
 #from board import Board

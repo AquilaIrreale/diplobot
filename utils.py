@@ -18,6 +18,14 @@
   ############################################################################
 
 
+from enum import Enum
+
+
+class StrEnum(Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
 def qmarks(n):
     return ", ".join(("?",) * n)
 
