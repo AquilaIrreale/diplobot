@@ -151,6 +151,17 @@ def all_ready(game_id):
     return not_ready == 0
 
 
+def delete_orders(game_id, player_id, *terrs):
+    c = db.cursor()
+    c.execute(
+        f"DELETE FROM orders "
+        f"WHERE game_id = ? "
+        f"AND player_id = ? "
+        f"AND terr IN ({qmarks(len(terrs))})",
+        (game_id, player_id, *(str(t) for t in terrs)))
+    db.commit()
+
+
 def store_orders(game_id, player_id, *orders):
     c = db.cursor()
     for order in orders:
