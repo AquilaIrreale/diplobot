@@ -125,6 +125,32 @@ def get_game_state(game_id):
     return GameState(state_str)
 
 
+def register_player(game_id, player_id, nation):
+    raise NotImplementedError
+
+
+def get_player_nation(game_id, player_id, nation):
+    raise NotImplementedError
+
+
+def set_ready(game_id, player_id, ready=True):
+    c = db.cursor()
+    c.execute("UPDATE players SET ready = ?", (ready,))
+    db.commit()
+
+
+def all_ready(game_id):
+    c = db.cursor()
+    c.execute(
+        "SELECT COUNT(*) "
+        "FROM players "
+        "WHERE game_id = ? "
+        "AND ready IS FALSE",
+        (game_id,))
+    (not_ready,) = c.fetchone()
+    return not_ready == 0
+
+
 def store_orders(game_id, player_id, *orders):
     c = db.cursor()
     for order in orders:
