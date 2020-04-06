@@ -22,6 +22,7 @@ from pathlib import Path
 import sqlite3
 
 from utils import qmarks
+from game import GameState
 from orders import Order
 
 
@@ -91,6 +92,37 @@ def disable_foreign_keys():
     c = db.cursor()
     c.execute("PRAGMA foreign_keys = OFF")
     db.commit()
+
+
+def register_game(game_id, start_date):
+    c = db.cursor()
+    c.execute(
+        "INSERT INTO games(id, start_date, game_date, state)"
+        "VALUES (?, ?, ?, ?)", (
+            game_id,
+            int(start_date),
+            int(start_date),
+            str(GameState.DEFAULT)))
+    db.commit()
+
+
+def set_game_state(game_id, state):
+    c = db.cursor()
+    c.execute(
+        "UPDATE games SET state = ?",
+        (str(state),))
+    db.commit()
+
+
+def get_game_state(game_id):
+    c = db.cursor()
+    c.execute(
+        "SELECT state "
+        "FROM games "
+        "WHERE id = ?",
+        (game_id,))
+    (state_str,) = c.fetchone()
+    return GameState(state_str)
 
 
 def store_orders(game_id, player_id, *orders):
