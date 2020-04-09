@@ -115,6 +115,8 @@ class Game:
         return GameState(state_str)
 
     def _set_state(self, state):
+        if not isinstance(new_state, GameState):
+            raise TypeError("new_state must be a GameState")
         self._execute_transition(state)
         c = db.cursor()
         c.execute(
@@ -171,8 +173,6 @@ class Game:
     }
 
     def _execute_transition(self, new_state):
-        if not isinstance(new_state, GameState):
-            raise TypeError("new_state must be a GameState")
         old_state = self._get_state()
         try:
             transition_function = (
