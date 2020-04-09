@@ -123,6 +123,38 @@ class Game:
 
     state = property(_get_state, _set_state)
 
+    @property
+    def start_date(self):
+        c = db.cursor()
+        c.execute(
+            "SELECT start_date "
+            "FROM games "
+            "WHERE id = ?",
+            (self.game_id,))
+        (datestamp,) = c.fetchone()
+        return GameDate(datestamp)
+
+    @property
+    def date(self):
+        c = db.cursor()
+        c.execute(
+            "SELECT game_date "
+            "FROM games "
+            "WHERE id = ?",
+            (self.game_id,))
+        (datestamp,) = c.fetchone()
+        return GameDate(datestamp)
+
+    def advance_date(self):
+        c = db.cursor()
+        c.execute(
+            "UPDATE games "
+            "SET game_date = ? "
+            "WHERE id = ?",
+            (int(self.date + 1),
+            self.game_id))
+        db.commit()
+
     def add_player(self, player_id):
         raise NotImplementedError
 
