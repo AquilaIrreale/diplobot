@@ -34,41 +34,41 @@ class GameState(StrEnum):
 
 
 class GameDate:
-    def __init__(self, timestamp):
-        self.timestamp = timestamp
+    def __init__(self, datestamp):
+        self.datestamp = datestamp
 
     def __add__(self, other):
         if not isinstance(other, int):
             return NotImplemented
-        return GameDate(self.timestamp + other)
+        return GameDate(self.datestamp + other)
 
     def __iadd__(self, other):
         if not isinstance(other, int):
             return NotImplemented
-        self.timestamp += other
+        self.datestamp += other
         return self
 
     def __sub__(self, other):
         if not isinstance(other, int):
             return NotImplemented
-        return GameDate(self.timestamp - other)
+        return GameDate(self.datestamp - other)
 
     def __isub(self, other):
         if not isinstance(other, int):
             return NotImplemented
-        self.timestamp -= other
+        self.datestamp -= other
         return self
 
     def __int__(self):
-        return self.timestamp
+        return self.datestamp
 
     def __repr__(self):
-        return f"GameDate({self.timestamp})"
+        return f"GameDate({self.datestamp})"
 
     def __str__(self):
-        is_bc = self.timestamp < 0
-        is_spring = self.timestamp % 2 == 0
-        year = abs(self.timestamp // 2)
+        is_bc = self.datestamp < 0
+        is_spring = self.datestamp % 2 == 0
+        year = abs(self.datestamp // 2)
         return "{}, {} {}".format(
             "Spring" if is_spring else "Fall",
             year if is_bc else year+1,
