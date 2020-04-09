@@ -20,6 +20,9 @@
 
 from utils import StrEnum
 from enum import auto
+from database import db
+
+#from sqlite3 import IntegrityError
 
 
 class GameState(StrEnum):
@@ -28,6 +31,78 @@ class GameState(StrEnum):
     RETREAT = auto()
     BUILD = auto()
     DEFAULT = CREATED
+
+
+class GameDate:
+    def __init__(self, timestamp):
+        self.timestamp = timestamp
+
+    def __int__(self):
+        return self.timestamp
+
+    def __str__(self):
+        is_bc = self.timestamp < 0
+        is_spring = self.timestamp % 2 == 0
+        year = abs(self.timestamp // 2)
+        return "{}, {} {}".format(
+            "Spring" if is_spring else "Fall",
+            year if is_bc else year+1,
+            "BC" if is_bc else "AD")
+
+    @classmethod
+    def parse(cls, s):
+        raise NotImplementedError
+
+    def advance(self):
+        self.timestamp += 1
+
+
+class Game:
+    def __init__(self, game_id):
+        c = db.cursor()
+        c.execute(
+            "SELECT count(*) FROM games WHERE id = ?", (game_id,))
+        if c.fetchone() == (0,):
+            raise ValueError(f"There's no game with id {game_id}")
+        self.game_id = game_id
+
+    @classmethod
+    def create(cls, game_id, start_date):
+        c = db.cursor()
+        c.execute(
+            "INSERT INTO games(id, start_date, game_date, state)"
+            "VALUES (?, ?, ?, ?)", (
+                game_id,
+                int(start_date),
+                int(start_date),
+                GameState.DEFAULT.value))
+        db.commit()
+        return cls(game_id)
+
+    def _get_state(self):
+        c = db.cursor()
+        c.execute(
+            "SELECT state "
+            "FROM games "
+            "WHERE id = ?",
+            (self.game_id,))
+        (state_str,) = c.fetchone()
+        return GameState(state_str)
+
+    def _set_state(self, state):
+        c = db.cursor()
+        c.execute(
+            "UPDATE games "
+            "SET state = ? "
+            "WHERE id = ?",
+            (GameState(state).value,
+            self.game_id))
+        db.commit()
+
+    state = property(_get_state, _set_state)
+
+    def add_player(self, player_id):
+        raise NotImplementedError
 
 
 #from operator import attrgetter
