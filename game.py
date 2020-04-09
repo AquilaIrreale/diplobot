@@ -115,6 +115,7 @@ class Game:
         return GameState(state_str)
 
     def _set_state(self, state):
+        self._execute_transition(state)
         c = db.cursor()
         c.execute(
             "UPDATE games "
@@ -160,6 +161,28 @@ class Game:
 
     def add_player(self, player_id):
         raise NotImplementedError
+
+    _state_transitions = {
+        (GameState.CREATED, GameState.MAIN):    None,
+        (GameState.MAIN,    GameState.RETREAT): None,
+        (GameState.RETREAT, GameState.MAIN):    None,
+        (GameState.RETREAT, GameState.BUILD):   None,
+        (GameState.BUILD,   GameState.MAIN):    None
+    }
+
+    def _execute_transition(self, new_state):
+        if not isinstance(new_state, GameState):
+            raise TypeError("new_state must be a GameState")
+        old_state = self._get_state()
+        try:
+            transition_function = (
+                self._state_transitions[(old_state, new_state)])
+        except KeyError as e:
+            raise ValueError(
+                f"Going from {old_state} to {new_state} "
+                f"is an invalid state transition") from e
+        if transition_function:
+            transition_function(self)
 
 
 #from operator import attrgetter
