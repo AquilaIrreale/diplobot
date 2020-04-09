@@ -37,6 +37,28 @@ class GameDate:
     def __init__(self, timestamp):
         self.timestamp = timestamp
 
+    def __add__(self, other):
+        if not isinstance(other, int):
+            return NotImplemented
+        return GameDate(self.timestamp + other)
+
+    def __iadd__(self, other):
+        if not isinstance(other, int):
+            return NotImplemented
+        self.timestamp += other
+        return self
+
+    def __sub__(self, other):
+        if not isinstance(other, int):
+            return NotImplemented
+        return GameDate(self.timestamp - other)
+
+    def __isub(self, other):
+        if not isinstance(other, int):
+            return NotImplemented
+        self.timestamp -= other
+        return self
+
     def __int__(self):
         return self.timestamp
 
@@ -52,9 +74,6 @@ class GameDate:
     @classmethod
     def parse(cls, s):
         raise NotImplementedError
-
-    def advance(self):
-        self.timestamp += 1
 
 
 class Game:
