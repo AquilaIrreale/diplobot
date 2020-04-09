@@ -88,6 +88,9 @@ class Game:
             raise ValueError(f"There's no game with id {game_id}")
         self.game_id = game_id
 
+    def __repr__(self):
+        return f"Game({self.game_id})"
+
     @classmethod
     def create(cls, game_id, start_date):
         c = db.cursor()
