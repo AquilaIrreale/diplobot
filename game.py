@@ -62,6 +62,9 @@ class GameDate:
     def __int__(self):
         return self.timestamp
 
+    def __repr__(self):
+        return f"GameDate({self.timestamp})"
+
     def __str__(self):
         is_bc = self.timestamp < 0
         is_spring = self.timestamp % 2 == 0
