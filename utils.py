@@ -27,7 +27,7 @@ class StrEnum(Enum):
 
 
 def qmarks(n):
-    return ", ".join(("?",) * n)
+    return ",".join("?" * n)
 
 
 def casefold_mapping(it):
