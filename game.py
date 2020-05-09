@@ -21,15 +21,16 @@
 from utils import StrEnum
 from enum import auto
 from database import db
+from board import Nation
 
 #from sqlite3 import IntegrityError
 
 
 class GameState(StrEnum):
     CREATED = auto()
-    MAIN = auto()
+    MAIN    = auto()
     RETREAT = auto()
-    BUILD = auto()
+    BUILD   = auto()
     DEFAULT = CREATED
 
 
@@ -79,6 +80,19 @@ class GameDate:
         raise NotImplementedError
 
 
+class Player:
+    def __init__(self, player_id):
+        c = db.cursor()
+        c.execute(
+            "SELECT count(*) FROM players WHERE id = ?", (player_id,))
+        if c.fetchone() == (0,):
+            raise ValueError(f"There's no player with id {player_id}")
+        self.player_id = player_id
+
+    def __repr__(self):
+        return f"Player({self.player_id})"
+
+
 class Game:
     def __init__(self, game_id):
         c = db.cursor()
@@ -95,7 +109,7 @@ class Game:
     def create(cls, game_id, start_date):
         c = db.cursor()
         c.execute(
-            "INSERT INTO games(id, start_date, game_date, state)"
+            "INSERT INTO games(id, start_date, game_date, state) "
             "VALUES (?, ?, ?, ?)", (
                 game_id,
                 int(start_date),
@@ -161,8 +175,16 @@ class Game:
             self.game_id))
         db.commit()
 
-    def add_player(self, player_id):
-        raise NotImplementedError
+    def add_player(self, player_id, nation):
+        c = db.cursor()
+        c.execute(
+            "INSERT INTO players(id, game_id, nation, ready) "
+            "VALUES (?, ?, ?, ?)", (
+                player_id,
+                self.game_id,
+                Nation(nation).value,
+                False))
+        db.commit()
 
     _state_transitions = {
         (GameState.CREATED, GameState.MAIN):    None,

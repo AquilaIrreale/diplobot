@@ -37,7 +37,8 @@ CREATE TABLE players (
     game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     nation TEXT NOT NULL,
     ready BOOL NOT NULL,
-    PRIMARY KEY (id, game_id)
+    PRIMARY KEY (id, game_id),
+    UNIQUE (game_id, nation)
 );
 CREATE TABLE units (
     game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,

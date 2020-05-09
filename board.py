@@ -25,7 +25,7 @@ from collections import UserString
 from functools import total_ordering
 
 from graph import Graph
-from utils import casefold_mapping
+from utils import StrEnum, casefold_mapping
 
 
 RE_TERR_COAST = re.compile(r"(?P<terr>\w+)\s*(?:\((?P<coast>\w+)\))?", re.I)
@@ -167,6 +167,23 @@ class TerrCoast(UserString):
         if not m:
             raise ValueError(f"{repr()} is not a valid territory with coast")
         return cls(m.group("terr"), m.group("coast"))
+
+
+class Nation(StrEnum):
+    AUSTRIA = auto()
+    ENGLAND = auto()
+    FRANCE  = auto()
+    GERMANY = auto()
+    ITALY   = auto()
+    RUSSIA  = auto()
+    TURKEY  = auto()
+
+    @classmethod
+    def parse(cls, s):
+        try:
+            return cls(s.strip().upper())
+        except ValueError as e:
+            raise ValueError(f"{repr(s)} is not a valid nation") from e
 
 
 #def strip_coast(t):
