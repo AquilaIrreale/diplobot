@@ -26,6 +26,7 @@ from functools import total_ordering
 
 from graph import Graph
 from utils import StrEnum, casefold_mapping
+from enum import auto
 
 
 RE_TERR_COAST = re.compile(r"(?P<terr>\w+)\s*(?:\((?P<coast>\w+)\))?", re.I)
