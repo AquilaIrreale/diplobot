@@ -40,7 +40,7 @@ class GameState(StrEnum):
 
 class GameDate:
     def __init__(self, datestamp):
-        self.datestamp = datestamp
+        self.datestamp = int(datestamp)
 
     def __add__(self, other):
         if not isinstance(other, int):
