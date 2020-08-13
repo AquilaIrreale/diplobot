@@ -34,8 +34,6 @@ class StrEnum(str, Enum):
             return cls(str(value).upper())
         return wrapper
 
-def qmarks(n):
-    return ",".join("?" * n)
 
 def auto_repr(cls):
     self, *init_params = tuple(signature(cls.__init__).parameters.keys())

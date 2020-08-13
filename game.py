@@ -190,10 +190,6 @@ class Player(ORMBase):
             nation=Nation,
             ready=bool)
 
-    @validates("state")
-    def validate_state(self, key, s):
-        return s # TODO
-
     def __init__(self, id, nation):
         self.id = id
         self.nation = nation
