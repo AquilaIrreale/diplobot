@@ -170,6 +170,7 @@ class TerrCoast(UserString):
         return cls(m.group("terr"), m.group("coast"))
 
 
+@StrEnum.caseless
 class Nation(StrEnum):
     AUSTRIA = auto()
     ENGLAND = auto()

@@ -19,12 +19,19 @@
 
 
 from enum import Enum
+from functools import wraps
 
 
-class StrEnum(Enum):
+class StrEnum(str, Enum):
     def _generate_next_value_(name, start, count, last_values):
         return name
 
+    @staticmethod
+    def caseless(cls):
+        @wraps(cls)
+        def wrapper(value):
+            return cls(str(value).upper())
+        return wrapper
 
 def qmarks(n):
     return ",".join("?" * n)
