@@ -20,6 +20,7 @@
 
 from enum import Enum
 from functools import wraps
+from inspect import signature
 
 
 class StrEnum(str, Enum):
@@ -35,6 +36,14 @@ class StrEnum(str, Enum):
 
 def qmarks(n):
     return ",".join("?" * n)
+
+def auto_repr(cls):
+    self, *init_params = tuple(signature(cls.__init__).parameters.keys())
+    def __repr__(self):
+        attr_list = ", ".join(repr(getattr(self, a)) for a in init_params)
+        return f"{cls.__name__}({attr_list})"
+    cls.__repr__ = __repr__
+    return cls
 
 
 def casefold_mapping(it):

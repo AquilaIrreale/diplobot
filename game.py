@@ -19,7 +19,7 @@
 
 
 from enum import auto
-from utils import StrEnum
+from utils import StrEnum, auto_repr
 
 from sqlalchemy import Column, Boolean, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship, validates
@@ -38,6 +38,7 @@ class GameState(StrEnum):
     DEFAULT = CREATED
 
 
+@auto_repr
 class GameDate:
     def __init__(self, datestamp):
         self.datestamp = int(datestamp)
@@ -66,9 +67,6 @@ class GameDate:
 
     def __int__(self):
         return self.datestamp
-
-    def __repr__(self):
-        return f"GameDate({self.datestamp})"
 
     def __str__(self):
         is_bc = self.datestamp < 0
@@ -149,6 +147,7 @@ def type_coercer(**attrs):
     return _validator
 
 
+@auto_repr
 class User(ORMBase):
     __tablename__ = "users"
 
@@ -163,10 +162,8 @@ class User(ORMBase):
     def __init__(self, id):
         self.id = id
 
-    def __repr__(self):
-        return f"User({repr(self.id)})"
 
-
+@auto_repr
 class Player(ORMBase):
     __tablename__ = "players"
 
@@ -202,11 +199,6 @@ class Player(ORMBase):
         self.nation = nation
         self.ready = False
 
-    def __repr__(self):
-        return (f"Player("
-                f"{repr(self.id)}, "
-                f"{repr(self.nation)})")
-
 
 #class Player:
 #    def __init__(self, player_id):
@@ -221,6 +213,7 @@ class Player(ORMBase):
 #        return f"Player({self.player_id})"
 
 
+@auto_repr
 class Game(ORMBase):
     __tablename__ = "games"
 
@@ -247,13 +240,6 @@ class Game(ORMBase):
         self.start_date = start_date
         self.game_date = game_date if game_date is not None else start_date
         self.state = state
-
-    def __repr__(self):
-        return (f"Game("
-                f"{repr(self.id)}, "
-                f"{repr(self.start_date)}, "
-                f"{repr(self.game_date)}, "
-                f"{repr(self.state)})")
 
 
 #class Game:
@@ -370,6 +356,7 @@ class Game(ORMBase):
 #            transition_function(self)
 
 
+@auto_repr
 class Unit(ORMBase):
     __tablename__ = "units"
 
@@ -391,12 +378,8 @@ class Unit(ORMBase):
         self.terr = terr
         self.type = type
 
-    def __repr__(self):
-        return (f"Unit("
-                f"{repr(self.terr)}, "
-                f"{repr(self.type)})")
 
-
+@auto_repr
 class Center(ORMBase):
     __tablename__ = "centers"
 
@@ -416,10 +399,6 @@ class Center(ORMBase):
 
     def __init__(self, terr):
         self.terr = terr
-
-    def __repr__(self):
-        return (f"Center("
-                f"{repr(self.terr)})")
 
 
 #from operator import attrgetter
