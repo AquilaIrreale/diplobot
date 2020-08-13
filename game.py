@@ -18,12 +18,16 @@
   ############################################################################
 
 
-from utils import StrEnum
 from enum import auto
-from database import db
-from board import Nation
+from utils import StrEnum
 
-#from sqlite3 import IntegrityError
+from sqlalchemy import Column, Boolean, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship, validates
+from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.types import TypeDecorator
+
+from database import ORMBase
+from board import Nation, Unit, Terr, TerrCoast
 
 
 class GameState(StrEnum):
@@ -80,131 +84,342 @@ class GameDate:
         raise NotImplementedError
 
 
-class Player:
-    def __init__(self, player_id):
-        c = db.cursor()
-        c.execute(
-            "SELECT count(*) FROM players WHERE id = ?", (player_id,))
-        if c.fetchone() == (0,):
-            raise ValueError(f"There's no player with id {player_id}")
-        self.player_id = player_id
+class DateColumn(TypeDecorator):
+    impl = Integer
 
-    def __repr__(self):
-        return f"Player({self.player_id})"
+    def process_bind_param(self, value, dialect):
+        return int(value)
+
+    def process_result_value(self, value, dialect):
+        return GameDate(value)
 
 
-class Game:
-    def __init__(self, game_id):
-        c = db.cursor()
-        c.execute(
-            "SELECT count(*) FROM games WHERE id = ?", (game_id,))
-        if c.fetchone() == (0,):
-            raise ValueError(f"There's no game with id {game_id}")
-        self.game_id = game_id
-
-    def __repr__(self):
-        return f"Game({self.game_id})"
-
-    @classmethod
-    def create(cls, game_id, start_date):
-        c = db.cursor()
-        c.execute(
-            "INSERT INTO games(id, start_date, game_date, state) "
-            "VALUES (?, ?, ?, ?)", (
-                game_id,
-                int(start_date),
-                int(start_date),
-                GameState.DEFAULT.value))
-        db.commit()
-        return cls(game_id)
-
-    def _get_state(self):
-        c = db.cursor()
-        c.execute(
-            "SELECT state "
-            "FROM games "
-            "WHERE id = ?",
-            (self.game_id,))
-        (state_str,) = c.fetchone()
-        return GameState(state_str)
-
-    def _set_state(self, state):
-        if not isinstance(new_state, GameState):
-            raise TypeError("new_state must be a GameState")
-        self._execute_transition(state)
-        c = db.cursor()
-        c.execute(
-            "UPDATE games "
-            "SET state = ? "
-            "WHERE id = ?",
-            (GameState(state).value,
-            self.game_id))
-        db.commit()
-
-    state = property(_get_state, _set_state)
+class UserStringColumn(TypeDecorator):
+    impl = String
 
     @property
-    def start_date(self):
-        c = db.cursor()
-        c.execute(
-            "SELECT start_date "
-            "FROM games "
-            "WHERE id = ?",
-            (self.game_id,))
-        (datestamp,) = c.fetchone()
-        return GameDate(datestamp)
+    def cls(self):
+        raise NotImplementedError
+
+    def process_bind_param(self, value, dialect):
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        return self.cls(value)
+
+
+class StringEnumColumn(TypeDecorator):
+    impl = String
 
     @property
-    def date(self):
-        c = db.cursor()
-        c.execute(
-            "SELECT game_date "
-            "FROM games "
-            "WHERE id = ?",
-            (self.game_id,))
-        (datestamp,) = c.fetchone()
-        return GameDate(datestamp)
+    def cls(self):
+        raise NotImplementedError
 
-    def advance_date(self):
-        c = db.cursor()
-        c.execute(
-            "UPDATE games "
-            "SET game_date = ? "
-            "WHERE id = ?",
-            (int(self.date + 1),
-            self.game_id))
-        db.commit()
+    def process_bind_param(self, value, dialect):
+        return value.name
 
-    def add_player(self, player_id, nation):
-        c = db.cursor()
-        c.execute(
-            "INSERT INTO players(id, game_id, nation, ready) "
-            "VALUES (?, ?, ?, ?)", (
-                player_id,
-                self.game_id,
-                Nation(nation).value,
-                False))
-        db.commit()
+    def process_result_value(self, value, dialect):
+        return self.parse(value)
 
-    _state_transitions = {
-        (GameState.CREATED, GameState.MAIN):    None,
-        (GameState.MAIN,    GameState.RETREAT): None,
-        (GameState.RETREAT, GameState.MAIN):    None,
-        (GameState.RETREAT, GameState.BUILD):   None,
-        (GameState.BUILD,   GameState.MAIN):    None
-    }
 
-    def _execute_transition(self, new_state):
-        old_state = self._get_state()
-        try:
-            transition_function = (
-                self._state_transitions[(old_state, new_state)])
-        except KeyError as e:
-            raise ValueError(
-                f"Going from {old_state} to {new_state} "
-                f"is an invalid state transition") from e
-        if transition_function:
-            transition_function(self)
+class StateColumn(StringEnumColumn):
+    cls = GameState
+
+
+class NationColumn(StringEnumColumn):
+    cls = Nation
+
+
+class UnitColumn(UserStringColumn):
+    cls = Unit
+
+
+class TerrColumn(UserStringColumn):
+    cls = Terr
+
+
+class TerrCoastColumn(UserStringColumn):
+    cls = TerrCoast
+
+
+def type_coercer(**attrs):
+    @validates(*attrs)
+    def _validator(self, attr, val):
+        return attrs[attr](val)
+    return _validator
+
+
+class User(ORMBase):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    cur_game_id = Column(Integer, ForeignKey("games.id"))
+
+    players = relationship("Player", back_populates="user")
+    cur_game = relationship("Game")
+
+    validator = type_coercer(id=int, cur_game_id=int)
+
+    def __init__(self, id):
+        self.id = id
+
+    def __repr__(self):
+        return f"User({repr(self.id)})"
+
+
+class Player(ORMBase):
+    __tablename__ = "players"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False)
+    nation = Column(NationColumn, nullable=False)
+    ready = Column(Boolean, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "nation"),
+        UniqueConstraint("user_id", "game_id")
+    )
+
+    user = relationship("User", back_populates="players")
+    game = relationship("Game", back_populates="players")
+    units = relationship("Unit", back_populates="owner")
+    centers = relationship("Center", back_populates="owner")
+
+    validator = type_coercer(
+            id=int,
+            user_id=int,
+            game_id=int,
+            nation=Nation,
+            ready=bool)
+
+    @validates("state")
+    def validate_state(self, key, s):
+        return s # TODO
+
+    def __init__(self, id, nation):
+        self.id = id
+        self.nation = nation
+        self.ready = False
+
+    def __repr__(self):
+        return (f"Player("
+                f"{repr(self.id)}, "
+                f"{repr(self.nation)})")
+
+
+#class Player:
+#    def __init__(self, player_id):
+#        c = db.cursor()
+#        c.execute(
+#            "SELECT count(*) FROM players WHERE id = ?", (player_id,))
+#        if c.fetchone() == (0,):
+#            raise ValueError(f"There's no player with id {player_id}")
+#        self.player_id = player_id
+#
+#    def __repr__(self):
+#        return f"Player({self.player_id})"
+
+
+class Game(ORMBase):
+    __tablename__ = "games"
+
+    id = Column(Integer, primary_key=True)
+    start_date = Column(DateColumn, nullable=False)
+    game_date = Column(DateColumn, nullable=False)
+    state = Column(StateColumn, nullable=False)
+
+    players = relationship(
+            "Player",
+            back_populates="game",
+            collection_class=attribute_mapped_collection("nation"))
+    units = relationship("Unit", back_populates="game")
+    centers = relationship("Center", back_populates="game")
+
+    validator = type_coercer(
+            id=int,
+            start_date=GameDate,
+            game_date=GameDate,
+            state=GameState)
+
+    def __init__(self, id, start_date, game_date=None, state=GameState.DEFAULT):
+        self.id = id
+        self.start_date = start_date
+        self.game_date = game_date if game_date is not None else start_date
+        self.state = state
+
+    def __repr__(self):
+        return (f"Game("
+                f"{repr(self.id)}, "
+                f"{repr(self.start_date)}, "
+                f"{repr(self.game_date)}, "
+                f"{repr(self.state)})")
+
+
+#class Game:
+#    def __init__(self, game_id):
+#        c = db.cursor()
+#        c.execute(
+#            "SELECT count(*) FROM games WHERE id = ?", (game_id,))
+#        if c.fetchone() == (0,):
+#            raise ValueError(f"There's no game with id {game_id}")
+#        self.game_id = game_id
+#
+#    def __repr__(self):
+#        return f"Game({self.game_id})"
+#
+#    @classmethod
+#    def create(cls, game_id, start_date):
+#        c = db.cursor()
+#        c.execute(
+#            "INSERT INTO games(id, start_date, game_date, state) "
+#            "VALUES (?, ?, ?, ?)", (
+#                game_id,
+#                int(start_date),
+#                int(start_date),
+#                GameState.DEFAULT.value))
+#        db.commit()
+#        return cls(game_id)
+#
+#    def _get_state(self):
+#        c = db.cursor()
+#        c.execute(
+#            "SELECT state "
+#            "FROM games "
+#            "WHERE id = ?",
+#            (self.game_id,))
+#        (state_str,) = c.fetchone()
+#        return GameState(state_str)
+#
+#    def _set_state(self, state):
+#        if not isinstance(new_state, GameState):
+#            raise TypeError("new_state must be a GameState")
+#        self._execute_transition(state)
+#        c = db.cursor()
+#        c.execute(
+#            "UPDATE games "
+#            "SET state = ? "
+#            "WHERE id = ?",
+#            (GameState(state).value,
+#            self.game_id))
+#        db.commit()
+#
+#    state = property(_get_state, _set_state)
+#
+#    @property
+#    def start_date(self):
+#        c = db.cursor()
+#        c.execute(
+#            "SELECT start_date "
+#            "FROM games "
+#            "WHERE id = ?",
+#            (self.game_id,))
+#        (datestamp,) = c.fetchone()
+#        return GameDate(datestamp)
+#
+#    @property
+#    def date(self):
+#        c = db.cursor()
+#        c.execute(
+#            "SELECT game_date "
+#            "FROM games "
+#            "WHERE id = ?",
+#            (self.game_id,))
+#        (datestamp,) = c.fetchone()
+#        return GameDate(datestamp)
+#
+#    def advance_date(self):
+#        c = db.cursor()
+#        c.execute(
+#            "UPDATE games "
+#            "SET game_date = ? "
+#            "WHERE id = ?",
+#            (int(self.date + 1),
+#            self.game_id))
+#        db.commit()
+#
+#    def add_player(self, player_id, nation):
+#        c = db.cursor()
+#        c.execute(
+#            "INSERT INTO players(id, game_id, nation, ready) "
+#            "VALUES (?, ?, ?, ?)", (
+#                player_id,
+#                self.game_id,
+#                Nation(nation).value,
+#                False))
+#        db.commit()
+#
+#    _state_transitions = {
+#        (GameState.CREATED, GameState.MAIN):    None,
+#        (GameState.MAIN,    GameState.RETREAT): None,
+#        (GameState.RETREAT, GameState.MAIN):    None,
+#        (GameState.RETREAT, GameState.BUILD):   None,
+#        (GameState.BUILD,   GameState.MAIN):    None
+#    }
+#
+#    def _execute_transition(self, new_state):
+#        old_state = self._get_state()
+#        try:
+#            transition_function = (
+#                self._state_transitions[(old_state, new_state)])
+#        except KeyError as e:
+#            raise ValueError(
+#                f"Going from {old_state} to {new_state} "
+#                f"is an invalid state transition") from e
+#        if transition_function:
+#            transition_function(self)
+
+
+class Unit(ORMBase):
+    __tablename__ = "units"
+
+    game_id = Column(Integer, ForeignKey("games.id"), primary_key=True)
+    terr = Column(TerrCoastColumn, primary_key=True)
+    type = Column(UnitColumn, nullable=False)
+    owner_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+
+    game = relationship("Game", back_populates="units")
+    owner = relationship("Player", back_populates="units")
+
+    validator = type_coercer(
+            game_id=int,
+            terr=TerrCoast,
+            type=Unit,
+            owner_id=int)
+
+    def __init__(self, terr, type):
+        self.terr = terr
+        self.type = type
+
+    def __repr__(self):
+        return (f"Unit("
+                f"{repr(self.terr)}, "
+                f"{repr(self.type)})")
+
+
+class Center(ORMBase):
+    __tablename__ = "centers"
+
+    game_id = Column(Integer, ForeignKey("games.id"), primary_key=True)
+    terr = Column(TerrColumn, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("players.id"))
+
+    __table_args__ = (UniqueConstraint("game_id", "terr"),)
+
+    game = relationship("Game", back_populates="centers")
+    owner = relationship("Player", back_populates="centers")
+
+    validator = type_coercer(
+            game_id=int,
+            terr=Terr,
+            owner_id=int)
+
+    def __init__(self, terr):
+        self.terr = terr
+
+    def __repr__(self):
+        return (f"Center("
+                f"{repr(self.terr)})")
 
 
 #from operator import attrgetter
