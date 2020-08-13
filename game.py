@@ -196,19 +196,6 @@ class Player(ORMBase):
         self.ready = False
 
 
-#class Player:
-#    def __init__(self, player_id):
-#        c = db.cursor()
-#        c.execute(
-#            "SELECT count(*) FROM players WHERE id = ?", (player_id,))
-#        if c.fetchone() == (0,):
-#            raise ValueError(f"There's no player with id {player_id}")
-#        self.player_id = player_id
-#
-#    def __repr__(self):
-#        return f"Player({self.player_id})"
-
-
 @auto_repr
 class Game(ORMBase):
     __tablename__ = "games"
@@ -228,128 +215,40 @@ class Game(ORMBase):
     validator = type_coercer(
             id=int,
             start_date=GameDate,
-            game_date=GameDate,
-            state=GameState)
+            game_date=GameDate)
+
+    @validates("state")
+    def state_validator(self, attr, state):
+        if not isinstance(state, GameState):
+            raise TypeError("new_state must be a GameState")
+        if self.state:
+            self.execute_transition(state)
+        return state
+
+    state_transitions = {
+        (GameState.CREATED, GameState.MAIN):    None,
+        (GameState.MAIN,    GameState.RETREAT): None,
+        (GameState.RETREAT, GameState.MAIN):    None,
+        (GameState.RETREAT, GameState.BUILD):   None,
+        (GameState.BUILD,   GameState.MAIN):    None
+    }
+
+    def execute_transition(self, new_state):
+        try:
+            transition_function = (
+                self.state_transitions[(self.state, new_state)])
+        except KeyError as e:
+            raise ValueError(
+                f"Going from {self.state} to {new_state} "
+                f"is an invalid state transition") from e
+        if transition_function:
+            transition_function(self)
 
     def __init__(self, id, start_date, game_date=None, state=GameState.DEFAULT):
         self.id = id
         self.start_date = start_date
         self.game_date = game_date if game_date is not None else start_date
         self.state = state
-
-
-#class Game:
-#    def __init__(self, game_id):
-#        c = db.cursor()
-#        c.execute(
-#            "SELECT count(*) FROM games WHERE id = ?", (game_id,))
-#        if c.fetchone() == (0,):
-#            raise ValueError(f"There's no game with id {game_id}")
-#        self.game_id = game_id
-#
-#    def __repr__(self):
-#        return f"Game({self.game_id})"
-#
-#    @classmethod
-#    def create(cls, game_id, start_date):
-#        c = db.cursor()
-#        c.execute(
-#            "INSERT INTO games(id, start_date, game_date, state) "
-#            "VALUES (?, ?, ?, ?)", (
-#                game_id,
-#                int(start_date),
-#                int(start_date),
-#                GameState.DEFAULT.value))
-#        db.commit()
-#        return cls(game_id)
-#
-#    def _get_state(self):
-#        c = db.cursor()
-#        c.execute(
-#            "SELECT state "
-#            "FROM games "
-#            "WHERE id = ?",
-#            (self.game_id,))
-#        (state_str,) = c.fetchone()
-#        return GameState(state_str)
-#
-#    def _set_state(self, state):
-#        if not isinstance(new_state, GameState):
-#            raise TypeError("new_state must be a GameState")
-#        self._execute_transition(state)
-#        c = db.cursor()
-#        c.execute(
-#            "UPDATE games "
-#            "SET state = ? "
-#            "WHERE id = ?",
-#            (GameState(state).value,
-#            self.game_id))
-#        db.commit()
-#
-#    state = property(_get_state, _set_state)
-#
-#    @property
-#    def start_date(self):
-#        c = db.cursor()
-#        c.execute(
-#            "SELECT start_date "
-#            "FROM games "
-#            "WHERE id = ?",
-#            (self.game_id,))
-#        (datestamp,) = c.fetchone()
-#        return GameDate(datestamp)
-#
-#    @property
-#    def date(self):
-#        c = db.cursor()
-#        c.execute(
-#            "SELECT game_date "
-#            "FROM games "
-#            "WHERE id = ?",
-#            (self.game_id,))
-#        (datestamp,) = c.fetchone()
-#        return GameDate(datestamp)
-#
-#    def advance_date(self):
-#        c = db.cursor()
-#        c.execute(
-#            "UPDATE games "
-#            "SET game_date = ? "
-#            "WHERE id = ?",
-#            (int(self.date + 1),
-#            self.game_id))
-#        db.commit()
-#
-#    def add_player(self, player_id, nation):
-#        c = db.cursor()
-#        c.execute(
-#            "INSERT INTO players(id, game_id, nation, ready) "
-#            "VALUES (?, ?, ?, ?)", (
-#                player_id,
-#                self.game_id,
-#                Nation(nation).value,
-#                False))
-#        db.commit()
-#
-#    _state_transitions = {
-#        (GameState.CREATED, GameState.MAIN):    None,
-#        (GameState.MAIN,    GameState.RETREAT): None,
-#        (GameState.RETREAT, GameState.MAIN):    None,
-#        (GameState.RETREAT, GameState.BUILD):   None,
-#        (GameState.BUILD,   GameState.MAIN):    None
-#    }
-#
-#    def _execute_transition(self, new_state):
-#        old_state = self._get_state()
-#        try:
-#            transition_function = (
-#                self._state_transitions[(old_state, new_state)])
-#        except KeyError as e:
-#            raise ValueError(
-#                f"Going from {old_state} to {new_state} "
-#                f"is an invalid state transition") from e
-#        if transition_function:
-#            transition_function(self)
 
 
 @auto_repr
