@@ -18,10 +18,48 @@
   ############################################################################
 
 
+from sqlalchemy import String
+from sqlalchemy.orm import validates
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
 
 
 ORMBase = declarative_base()
+
+
+class UserStringColumn(TypeDecorator):
+    impl = String
+
+    @property
+    def cls(self):
+        raise NotImplementedError
+
+    def process_bind_param(self, value, dialect):
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        return self.cls(value)
+
+
+class StringEnumColumn(TypeDecorator):
+    impl = String
+
+    @property
+    def cls(self):
+        raise NotImplementedError
+
+    def process_bind_param(self, value, dialect):
+        return value.name
+
+    def process_result_value(self, value, dialect):
+        return self.parse(value)
+
+
+def type_coercing_validator(**attrs):
+    @validates(*attrs)
+    def _validator(self, attr, val):
+        return attrs[attr](val)
+    return _validator
 
 
 #from pathlib import Path

@@ -26,6 +26,7 @@ from functools import total_ordering
 
 from graph import Graph
 from utils import StrEnum, casefold_mapping
+from database import StringEnumColumn, UserStringColumn
 from enum import auto
 
 
@@ -68,6 +69,10 @@ class Unit(UserString):
 
     def __hash__(self):
         return hash(str(self))
+
+
+class UnitColumn(UserStringColumn):
+    cls = Unit
 
 
 class Coast(UserString):
@@ -129,6 +134,10 @@ class Terr(UserString):
         return hash(str(self))
 
 
+class TerrColumn(UserStringColumn):
+    cls = Terr
+
+
 split_coasts = set()
 for v in sea_graph.vertices():
     m = RE_TERR_COAST.fullmatch(v)
@@ -170,6 +179,10 @@ class TerrCoast(UserString):
         return cls(m.group("terr"), m.group("coast"))
 
 
+class TerrCoastColumn(UserStringColumn):
+    cls = TerrCoast
+
+
 @StrEnum.caseless
 class Nation(StrEnum):
     AUSTRIA = auto()
@@ -186,6 +199,10 @@ class Nation(StrEnum):
             return cls(s.strip().upper())
         except ValueError as e:
             raise ValueError(f"{repr(s)} is not a valid nation") from e
+
+
+class NationColumn(StringEnumColumn):
+    cls = Nation
 
 
 #def strip_coast(t):

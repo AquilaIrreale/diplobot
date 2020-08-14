@@ -26,8 +26,8 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.types import TypeDecorator
 
-from database import ORMBase
-from board import Nation, Unit, Terr, TerrCoast
+from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator
+from board import Nation, NationColumn, Unit, UnitColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
 
 
 class GameState(StrEnum):
@@ -92,59 +92,8 @@ class DateColumn(TypeDecorator):
         return GameDate(value)
 
 
-class UserStringColumn(TypeDecorator):
-    impl = String
-
-    @property
-    def cls(self):
-        raise NotImplementedError
-
-    def process_bind_param(self, value, dialect):
-        return str(value)
-
-    def process_result_value(self, value, dialect):
-        return self.cls(value)
-
-
-class StringEnumColumn(TypeDecorator):
-    impl = String
-
-    @property
-    def cls(self):
-        raise NotImplementedError
-
-    def process_bind_param(self, value, dialect):
-        return value.name
-
-    def process_result_value(self, value, dialect):
-        return self.parse(value)
-
-
 class StateColumn(StringEnumColumn):
     cls = GameState
-
-
-class NationColumn(StringEnumColumn):
-    cls = Nation
-
-
-class UnitColumn(UserStringColumn):
-    cls = Unit
-
-
-class TerrColumn(UserStringColumn):
-    cls = Terr
-
-
-class TerrCoastColumn(UserStringColumn):
-    cls = TerrCoast
-
-
-def type_coercer(**attrs):
-    @validates(*attrs)
-    def _validator(self, attr, val):
-        return attrs[attr](val)
-    return _validator
 
 
 @auto_repr
@@ -157,7 +106,7 @@ class User(ORMBase):
     players = relationship("Player", back_populates="user")
     cur_game = relationship("Game")
 
-    validator = type_coercer(id=int, cur_game_id=int)
+    validator = type_coercing_validator(id=int, cur_game_id=int)
 
     def __init__(self, id):
         self.id = id
@@ -183,7 +132,7 @@ class Player(ORMBase):
     units = relationship("Unit", back_populates="owner")
     centers = relationship("Center", back_populates="owner")
 
-    validator = type_coercer(
+    validator = type_coercing_validator(
             id=int,
             user_id=int,
             game_id=int,
@@ -212,7 +161,7 @@ class Game(ORMBase):
     units = relationship("Unit", back_populates="game")
     centers = relationship("Center", back_populates="game")
 
-    validator = type_coercer(
+    validator = type_coercing_validator(
             id=int,
             start_date=GameDate,
             game_date=GameDate)
@@ -263,7 +212,7 @@ class Unit(ORMBase):
     game = relationship("Game", back_populates="units")
     owner = relationship("Player", back_populates="units")
 
-    validator = type_coercer(
+    validator = type_coercing_validator(
             game_id=int,
             terr=TerrCoast,
             type=Unit,
@@ -287,7 +236,7 @@ class Center(ORMBase):
     game = relationship("Game", back_populates="centers")
     owner = relationship("Player", back_populates="centers")
 
-    validator = type_coercer(
+    validator = type_coercing_validator(
             game_id=int,
             terr=Terr,
             owner_id=int)
