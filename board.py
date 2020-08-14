@@ -98,9 +98,6 @@ class Coast(UserString):
     def __hash__(self):
         return hash(str(self))
 
-    def parens_form(self):
-        return f"({self})" if self else ""
-
 
 @total_ordering
 class Terr(UserString):
@@ -148,6 +145,13 @@ for v in sea_graph.vertices():
 @total_ordering
 class TerrCoast(UserString):
     def __init__(self, terr, coast=None):
+        if coast is None:
+            s = terr.strip()
+            m = RE_TERR_COAST.fullmatch(s)
+            if not m:
+                raise ValueError(f"{repr(s)} is not a valid territory with coast")
+            terr = m.group("terr")
+            coast = m.group("coast")
         self.terr = Terr(terr)
         self.coast = Coast(coast)
         if self.coast and self.terr not in split_coasts:
@@ -156,10 +160,10 @@ class TerrCoast(UserString):
                 f"for non split coast territory {repr(str(terr))}")
 
     def __repr__(self):
-        return f"TerrCoast({repr(self.terr)}, {repr(self.coast)})"
+        return f"TerrCoast({repr(str(self.terr))}, {repr(str(self.coast))})"
 
     def __str__(self):
-        return str(self.terr) + self.coast.parens_form()
+        return f"{str(self.terr)}({str(self.coast)})"
 
     def __eq__(self, other):
         return (self.terr, self.coast) == (other.terr, other.coast)
@@ -169,14 +173,6 @@ class TerrCoast(UserString):
 
     def __hash__(self):
         return hash(str(self))
-
-    @classmethod
-    def parse(cls, s):
-        s = s.strip()
-        m = RE_TERR_COAST.fullmatch(s)
-        if not m:
-            raise ValueError(f"{repr()} is not a valid territory with coast")
-        return cls(m.group("terr"), m.group("coast"))
 
 
 class TerrCoastColumn(UserStringColumn):
