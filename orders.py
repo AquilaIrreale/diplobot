@@ -27,7 +27,7 @@ from sqlalchemy.orm import relationship
 import game
 
 from database import ORMBase, type_coercing_validator
-from board import Unit, Terr, Coast, TerrCoast, UnitColumn, TerrColumn, CoastColumn
+from board import UnitType, Terr, Coast, TerrCoast, UnitTypeColumn, TerrColumn, CoastColumn
 from utils import auto_repr
 
 
@@ -42,7 +42,7 @@ class Order(ORMBase):
     type = Column(String)
     player_id = Column(Integer, ForeignKey("players.id"), primary_key=True)
     terr = Column(TerrColumn, primary_key=True)
-    unit = Column(UnitColumn)
+    unit = Column(UnitTypeColumn)
 
     __mapper_args__ = {
         "polymorphic_on": type,
@@ -52,7 +52,7 @@ class Order(ORMBase):
     player = relationship("Player", back_populates="orders")
 
     _common_validator = type_coercing_validator(
-            unit=Unit,
+            unit=UnitType,
             terr=Terr)
 
     def __init__(self, *args, **kwargs):

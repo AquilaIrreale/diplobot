@@ -49,7 +49,7 @@ for (v1, v2) in all_edges:
 del all_edges
 
 
-class Unit(UserString):
+class UnitType(UserString):
     def __new__(cls, s):
         if type(s) is cls:
             return s
@@ -65,14 +65,14 @@ class Unit(UserString):
         super().__init__(unit)
 
     def __repr__(self):
-        return f"Unit({repr(str(self))})"
+        return f"UnitType({repr(str(self))})"
 
     def __hash__(self):
         return hash(str(self))
 
 
-class UnitColumn(UserStringColumn):
-    cls = Unit
+class UnitTypeColumn(UserStringColumn):
+    cls = UnitType
 
 
 class Coast(UserString):

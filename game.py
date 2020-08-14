@@ -29,7 +29,7 @@ from sqlalchemy.types import TypeDecorator
 import orders
 
 from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator
-from board import Nation, NationColumn, Unit, UnitColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
+from board import Nation, NationColumn, UnitType, UnitTypeColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
 
 
 class GameState(StrEnum):
@@ -209,7 +209,7 @@ class Unit(ORMBase):
 
     game_id = Column(Integer, ForeignKey("games.id"), primary_key=True)
     terr = Column(TerrCoastColumn, primary_key=True)
-    type = Column(UnitColumn, nullable=False)
+    type = Column(UnitTypeColumn, nullable=False)
     owner_id = Column(Integer, ForeignKey("players.id"), nullable=False)
 
     game = relationship("Game", back_populates="units")
@@ -218,7 +218,7 @@ class Unit(ORMBase):
     validator = type_coercing_validator(
             game_id=int,
             terr=TerrCoast,
-            type=Unit,
+            type=UnitType,
             owner_id=int)
 
     def __init__(self, terr, type):
