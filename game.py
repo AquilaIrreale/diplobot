@@ -26,6 +26,8 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.types import TypeDecorator
 
+import orders
+
 from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator
 from board import Nation, NationColumn, Unit, UnitColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
 
@@ -131,6 +133,7 @@ class Player(ORMBase):
     game = relationship("Game", back_populates="players")
     units = relationship("Unit", back_populates="owner")
     centers = relationship("Center", back_populates="owner")
+    orders = relationship("Order", back_populates="player")
 
     validator = type_coercing_validator(
             id=int,

@@ -99,6 +99,10 @@ class Coast(UserString):
         return hash(str(self))
 
 
+class CoastColumn(UserStringColumn):
+    cls = Coast
+
+
 @total_ordering
 class Terr(UserString):
     _names = casefold_mapping(full_graph.vertices())

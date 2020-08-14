@@ -21,7 +21,14 @@
 import re
 from functools import total_ordering
 
-from board import Unit, Terr, TerrCoast
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+
+import game
+
+from database import ORMBase, type_coercing_validator
+from board import Unit, Terr, Coast, TerrCoast, UnitColumn, TerrColumn, CoastColumn
+from utils import auto_repr
 
 
 class OrderParseError(Exception):
@@ -29,7 +36,25 @@ class OrderParseError(Exception):
 
 
 @total_ordering
-class Order:
+class Order(ORMBase):
+    __tablename__ = "orders"
+
+    type = Column(String)
+    player_id = Column(Integer, ForeignKey("players.id"), primary_key=True)
+    terr = Column(TerrColumn, primary_key=True)
+    unit = Column(UnitColumn)
+
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "polymorphic_identity": "NONE"
+    }
+
+    player = relationship("Player", back_populates="orders")
+
+    _common_validator = type_coercing_validator(
+            unit=Unit,
+            terr=Terr)
+
     def __init__(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -55,32 +80,6 @@ class Order:
     def __hash__(self):
         return hash(self._key())
 
-    @classmethod
-    def types(cls):
-        if cls is not Order:
-            raise RuntimeError("This method can only be called on the Order class")
-        return cls.__subclasses__()
-
-    @property
-    def typestr():
-        raise NotImplementedError
-
-    def to_db_tuple(self):
-        raise NotImplementedError
-
-    @classmethod
-    def from_db_tuple(cls, typestr, unit, terr, orig, targ, coast, viac):
-        if cls is not Order:
-            raise NotImplementedError
-
-        for OrdType in cls.types():
-            if OrdType.typestr == typestr:
-                return OrdType.from_db_tuple(unit, terr, orig, targ, coast, viac)
-        else:
-            t = (typestr, unit, terr, orig, targ, viac)
-            raise ValueError(
-                f"{repr(t)} does not look like an order")
-
     def to_cdippy(self):
         raise NotImplementedError
 
@@ -97,6 +96,13 @@ class Order:
         else:
             raise ValueError(
                 f"{repr(s)} does not look like an order")
+
+
+# Shared columns
+orig_column = Column("orig", TerrColumn)
+targ_column = Column("targ", TerrColumn)
+coast_column = Column("coast", CoastColumn)
+viac_column = Column("viac", Boolean)
 
 
 # Order RE patterns
@@ -117,38 +123,21 @@ def re_build(*args):
     return re.compile(pattern, re.I)
 
 
+@auto_repr
 class HoldOrder(Order):
-    def __init__(self, unit, terr):
-        self.unit = Unit(unit)
-        self.terr = Terr(terr)
+    __mapper_args__ = {
+        "polymorphic_identity": "HOLD",
+    }
 
-    def __repr__(self):
-        return (
-            f"HoldOrder("
-            f"{repr(self.unit)}, "
-            f"{repr(self.terr)})")
+    def __init__(self, unit, terr):
+        self.unit = unit
+        self.terr = terr
 
     def __str__(self):
         return f"{self.unit} {self.terr} H"
 
     def _key(self):
         return 0, self.terr
-
-    typestr = "HOLD"
-
-    def to_db_tuple(self):
-        return (
-            self.typestr,
-            str(self.unit),
-            str(self.terr),
-            None,
-            None,
-            None,
-            None)
-
-    @classmethod
-    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
-        return cls(unit, terr)
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
@@ -170,18 +159,21 @@ class HoldOrder(Order):
             m.group("terr"))
 
 
+@auto_repr
 class SupHoldOrder(Order):
-    def __init__(self, unit, terr, targ):
-        self.unit = Unit(unit)
-        self.terr = Terr(terr)
-        self.targ = Terr(targ)
+    targ = targ_column
 
-    def __repr__(self):
-        return (
-            f"SupHoldOrder("
-            f"{repr(self.unit)}, "
-            f"{repr(self.terr)}, "
-            f"{repr(self.targ)})")
+    __mapper_args__ = {
+        "polymorphic_identity": "SUPH",
+    }
+
+    validator = type_coercing_validator(
+            targ=Terr)
+
+    def __init__(self, unit, terr, targ):
+        self.unit = unit
+        self.terr = terr
+        self.targ = targ
 
     def __str__(self):
         return (
@@ -190,22 +182,6 @@ class SupHoldOrder(Order):
 
     def _key(self):
         return 0, self.targ, self.terr
-
-    typestr = "SUPH"
-
-    def to_db_tuple(self):
-        return (
-            self.typestr,
-            str(self.unit),
-            str(self.terr),
-            None,
-            str(self.targ),
-            None,
-            None)
-
-    @classmethod
-    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
-        return cls(unit, terr, targ)
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
@@ -229,21 +205,41 @@ class SupHoldOrder(Order):
             m.group("targ"))
 
 
+@auto_repr
 class MoveOrder(Order):
-    def __init__(self, unit, terr, targ, coast=None, viac=False):
-        self.unit = Unit(unit)
-        self.terr = Terr(terr)
-        self.targ = TerrCoast(targ, coast)
-        self.viac = bool(viac)
+    targ_terr = targ_column
+    targ_coast = coast_column
+    viac = viac_column
 
-    def __repr__(self):
-        return (
-            f"MoveOrder("
-            f"{repr(self.unit)}, "
-            f"{repr(self.terr)}, "
-            f"{repr(self.targ.terr)}, "
-            f"{repr(self.targ.coast)}, "
-            f"viac={self.viac})")
+    @property
+    def targ(self):
+        return TerrCoast(self.targ_terr, self.targ_coast)
+
+    @targ.setter
+    def targ(self, val):
+        if val is None:
+            self.targ_terr = None
+            self.targ_coast = None
+        else:
+            tc = TerrCoast(val)
+            self.targ_terr = tc.terr
+            self.targ_coast = tc.coast
+
+    __mapper_args__ = {
+        "polymorphic_identity": "MOVE",
+    }
+
+    validator = type_coercing_validator(
+            targ_terr=Terr,
+            targ_coast=Coast,
+            viac=bool)
+
+    def __init__(self, unit, terr, targ_terr, targ_coast=None, viac=False):
+        self.unit = unit
+        self.terr = terr
+        self.targ_terr = targ_terr
+        self.targ_coast = targ_coast
+        self.viac = viac
 
     def __str__(self):
         return (
@@ -252,22 +248,6 @@ class MoveOrder(Order):
 
     def _key(self):
         return 1, self.terr, self.targ.terr
-
-    typestr = "MOVE"
-
-    def to_db_tuple(self):
-        return (
-            self.typestr,
-            str(self.unit),
-            str(self.terr),
-            None,
-            str(self.targ.terr),
-            str(self.targ.coast),
-            self.viac)
-
-    @classmethod
-    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
-        return cls(unit, terr, targ, coast, viac)
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
@@ -295,20 +275,24 @@ class MoveOrder(Order):
             m.group("viac"))
 
 
+@auto_repr
 class SupMoveOrder(Order):
-    def __init__(self, unit, terr, orig, targ):
-        self.unit = Unit(unit)
-        self.terr = Terr(terr)
-        self.orig = Terr(orig)
-        self.targ = Terr(targ)
+    orig = orig_column
+    targ = targ_column
 
-    def __repr__(self):
-        return (
-            f"SupMoveOrder("
-            f"{repr(self.unit)}, "
-            f"{repr(self.terr)}, "
-            f"{repr(self.orig)}, "
-            f"{repr(self.targ)})")
+    __mapper_args__ = {
+        "polymorphic_identity": "SUPM",
+    }
+
+    validator = type_coercing_validator(
+            orig=Terr,
+            targ=Terr)
+
+    def __init__(self, unit, terr, orig, targ):
+        self.unit = unit
+        self.terr = terr
+        self.orig = orig
+        self.targ = targ
 
     def __str__(self):
         return (
@@ -317,22 +301,6 @@ class SupMoveOrder(Order):
 
     def _key(self):
         return 1, self.orig, self.targ, 0, self.terr
-
-    typestr = "SUPM"
-
-    def to_db_tuple(self):
-        return (
-            self.typestr,
-            str(self.unit),
-            str(self.terr),
-            str(self.orig),
-            str(self.targ),
-            None,
-            None)
-
-    @classmethod
-    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
-        return cls(unit, terr, orig, targ)
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
@@ -359,20 +327,24 @@ class SupMoveOrder(Order):
             m.group("targ"))
 
 
+@auto_repr
 class ConvOrder(Order):
-    def __init__(self, unit, terr, orig, targ):
-        self.unit = Unit(unit)
-        self.terr = Terr(terr)
-        self.orig = Terr(orig)
-        self.targ = Terr(targ)
+    orig = orig_column
+    targ = targ_column
 
-    def __repr__(self):
-        return (
-            f"ConvOrder("
-            f"{repr(self.unit)}, "
-            f"{repr(self.terr)}, "
-            f"{repr(self.orig)},"
-            f"{repr(self.targ)})")
+    __mapper_args__ = {
+        "polymorphic_identity": "CONV",
+    }
+
+    validator = type_coercing_validator(
+            orig=Terr,
+            targ=Terr)
+
+    def __init__(self, unit, terr, orig, targ):
+        self.unit = unit
+        self.terr = terr
+        self.orig = orig
+        self.targ = targ
 
     def __str__(self):
         return (
@@ -381,22 +353,6 @@ class ConvOrder(Order):
 
     def _key(self):
         return 1, self.orig, self.targ, 1, self.terr
-
-    typestr = "CONV"
-
-    def to_db_tuple(self):
-        return (
-            self.typestr,
-            str(self.unit),
-            str(self.terr),
-            str(self.orig),
-            str(self.targ),
-            None,
-            None)
-
-    @classmethod
-    def from_db_tuple(cls, unit, terr, orig, targ, coast, viac):
-        return cls(unit, terr, orig, targ)
 
     def to_cdippy(self):
         raise NotImplementedError #TODO
