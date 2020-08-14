@@ -205,6 +205,14 @@ class NationColumn(StringEnumColumn):
     cls = Nation
 
 
+supply_centers = {}
+with open("assets/supply_centers") as f:
+    for line in f:
+        n, terrs = line.split(":")
+        for t in terrs.split():
+            supply_centers[Terr(t)] = Nation(n) if n else None
+
+
 #def strip_coast(t):
 #    return t[:3]
 #
