@@ -20,100 +20,103 @@
 
 import re
 import os
-import tempfile
 import subprocess
 import xml.etree.ElementTree as ET
 
 from copy import deepcopy
+from tempfile import mkstemp
 
-from board import supp_centers, split_coasts
+from board import supply_centers, split_coasts, Nation, UnitType, Terr, TerrCoast
+
+
+nation_colors = {
+    Nation.AUSTRIA: "#FE3A3A",
+    Nation.ENGLAND: "#163BC7",
+    Nation.FRANCE: "#00E9FF",
+    Nation.GERMANY: "#878787",
+    Nation.ITALY: "#00FF00",
+    Nation.RUSSIA: "#BE68D6",
+    Nation.TURKEY: "#F5F500"
+}
+
+board_master = ET.parse("assets/board.svg")
+
+unit_re = re.compile(r"(?P<terr>\w{3})_(?P<kind>[AF])(_(?P<coast>NC|SC))?", re.I)
+center_re = re.compile(r"(?P<terr>\w{3})_dot", re.I)
 
 
 def set_style(e, key, value):
     style = e.get("style", default="")
-
-    if re.match(r"\b{}:".format(key), style):
-        style = re.sub(r"\b{}:[^;]*".format(key), "{}:{}".format(key, value), style)
-
-    else:
-        if style:
-            style += ';'
-
-        style += "{}:{}".format(key, value)
-
+    style, n = re.subn(rf"\b{key}:[^;]*", f"{key}:{value}", style, count=1)
+    if not n:
+        style = f"{key}:{value};{style}"
     e.set("style", style)
 
 
 def del_style(e, key):
     style = e.get("style", default="")
-    style = re.sub(r"\b{}:[^;]*;?".format(key), "", style)
+    style = re.sub(rf"\b{key}:[^;]*;?", "", style)
     e.set("style", style)
 
 
-board_svg = ET.parse("assets/board.svg")
-
-piece_re = re.compile(r"^\w{3}_[AF](_(NC|SC))?$")
-
-for e in board_svg.getroot().iter():
-    if piece_re.match(e.get("id", default="")):
+for e in board_master.getroot().iter():
+    if unit_re.fullmatch(e.get("id", default="").strip()):
         set_style(e, "display", "none")
 
 
-nation_colors = {
-    "AUSTRIA" : "#FE3A3A",
-    "ENGLAND" : "#163BC7",
-    "FRANCE"  : "#00E9FF",
-    "GERMANY" : "#878787",
-    "ITALY"   : "#00FF00",
-    "RUSSIA"  : "#BE68D6",
-    "TURKEY"  : "#F5F500"
-}
+def render_board(centers, units):
+    centers = {Terr(t): n for t, n in centers.items()}
+    units = {TerrCoast(tc): (n, k) for tc, (n, k) in units.items()}
 
-
-def render_board(board):
-    board_copy = deepcopy(board_svg)
+    board_copy = deepcopy(board_master)
     root = board_copy.getroot()
 
-    for t in board.owned() & supp_centers:
-        e = root.find('.//*[@id="{}_dot"]'.format(t))
-        color = nation_colors[board[t].owner]
-        set_style(e, "fill", color)
+    for e in board_copy.getroot().iter():
+        id_attr = e.get("id", default="").strip()
 
-    for t in board.occupied():
-        k = board[t].kind
-        c = board[t].coast
+        if m := center_re.fullmatch(id_attr):
+            t = Terr(m.group("terr"))
+            try:
+                nation = centers[t]
+            except KeyError:
+                pass
+            else:
+                set_style(e, "fill", nation_colors[nation])
 
-        piece_id = "{}_{}".format(t, k)
+        elif m := unit_re.fullmatch(id_attr):
+            tc = TerrCoast(m.group("terr"), m.group("coast"))
+            k = UnitType(m.group("kind"))
+            try:
+                nation, kind = units[tc]
+            except KeyError:
+                pass
+            else:
+                if k == kind:
+                    for f in e.iter():
+                        set_style(f, "fill", nation_colors[nation])
+                    del_style(e, "display")
 
-        if t in split_coasts and k == "F":
-            piece_id += "_NC" if c == "(NC)" else "_SC"
+    svg_fd, svg_fn = mkstemp(suffix=".svg")
+    with os.fdopen(svg_fd, "wb") as f:
+        board_copy.write(f)
 
-        e = root.find('.//*[@id="{}"]/*'.format(piece_id))
-        color = nation_colors[board[t].occupied]
-        set_style(e, "fill", color)
-
-        e = root.find('.//*[@id="{}"]'.format(piece_id))
-        del_style(e, "display")
-
-    svg_fd, svg_fn = tempfile.mkstemp()
-    svg = os.fdopen(svg_fd, "wb")
-    board_copy.write(svg)
-    svg.close()
-
-    png_fd, png_fn = tempfile.mkstemp()
+    png_fd, png_fn = mkstemp(suffix=".png")
     os.close(png_fd)
 
-    subprocess.run(
-        [
-            "inkscape",
-            "--export-png=" + png_fn,
-            "--export-width=1280",
-            "--export-height=1175",
+    inkscape_process = subprocess.run(
+        (
+            f"inkscape",
+            f"--export-filename={png_fn}",
+            f"--export-type=png",
+            f"--export-width=1280",
+            f"--export-height=1175",
             svg_fn
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL)
+        ))
 
     os.unlink(svg_fn)
+    inkscape_process.check_returncode()
+
+    #DEBUG
+    subprocess.run(["sxiv", png_fn])
 
     return png_fn
