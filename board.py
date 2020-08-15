@@ -148,7 +148,15 @@ for v in sea_graph.vertices():
 
 @total_ordering
 class TerrCoast(UserString):
+    def __new__(cls, terr, coast=None):
+        if coast is None and type(terr) is cls:
+            return terr
+        else:
+            return super().__new__(cls)
+
     def __init__(self, terr, coast=None):
+        if terr is self:
+            return
         if coast is None:
             s = terr.strip()
             m = RE_TERR_COAST.fullmatch(s)
@@ -170,9 +178,11 @@ class TerrCoast(UserString):
         return f"{str(self.terr)}({str(self.coast)})"
 
     def __eq__(self, other):
+        other = TerrCoast(other)
         return (self.terr, self.coast) == (other.terr, other.coast)
 
     def __lt__(self, other):
+        other = TerrCoast(other)
         return (self.terr, self.coast) < (other.terr, other.coast)
 
     def __hash__(self):
