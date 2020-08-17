@@ -332,6 +332,14 @@ def get_centers(chat_id):
     }
 
 
+def get_units(chat_id):
+    session = Session()
+    return {
+        unit.terr: (unit.owner.nation if unit.owner else None, unit.type)
+        for unit in session.query(Unit).filter_by(game_id=chat_id)
+    }
+
+
 #from operator import attrgetter
 #
 #from board import Board
