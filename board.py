@@ -25,8 +25,8 @@ from collections import UserString
 from functools import total_ordering
 
 from graph import Graph
-from utils import StrEnum, casefold_mapping
-from database import StringEnumColumn, UserStringColumn
+from utils import UppercaseStrEnum, casefold_mapping
+from database import UppercaseStringEnumColumn, UserStringColumn
 from enum import auto
 
 
@@ -193,8 +193,7 @@ class TerrCoastColumn(UserStringColumn):
     cls = TerrCoast
 
 
-@StrEnum.caseless
-class Nation(StrEnum):
+class Nation(UppercaseStrEnum):
     AUSTRIA = auto()
     ENGLAND = auto()
     FRANCE  = auto()
@@ -203,15 +202,8 @@ class Nation(StrEnum):
     RUSSIA  = auto()
     TURKEY  = auto()
 
-    @classmethod
-    def parse(cls, s):
-        try:
-            return cls(s.strip().upper())
-        except ValueError as e:
-            raise ValueError(f"{repr(s)} is not a valid nation") from e
 
-
-class NationColumn(StringEnumColumn):
+class NationColumn(UppercaseStringEnumColumn):
     cls = Nation
 
 
@@ -220,7 +212,7 @@ with open("assets/supply_centers") as f:
     for line in f:
         n, terrs = line.split(":")
         for t in terrs.split():
-            supply_centers[Terr(t)] = Nation(n) if n else None
+            supply_centers[Terr(t)] = Nation.parse(n) if n else None
 
 
 #def strip_coast(t):

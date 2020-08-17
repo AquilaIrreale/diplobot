@@ -27,12 +27,17 @@ class StrEnum(str, Enum):
     def _generate_next_value_(name, start, count, last_values):
         return name
 
-    @staticmethod
-    def caseless(cls):
-        @wraps(cls)
-        def wrapper(value):
-            return cls(str(value).upper())
-        return wrapper
+
+class UppercaseStrEnum(StrEnum):
+    def __new__(cls, s):
+        u = s.upper()
+        obj = str.__new__(cls, u)
+        obj._value_ = u
+        return obj
+
+    @classmethod
+    def parse(cls, s):
+        return cls(s.strip().upper())
 
 
 def auto_repr(cls):

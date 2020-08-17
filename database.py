@@ -52,7 +52,21 @@ class StringEnumColumn(TypeDecorator):
         return value.name
 
     def process_result_value(self, value, dialect):
-        return self.parse(value)
+        return self.cls(value)
+
+
+class UppercaseStringEnumColumn(TypeDecorator):
+    impl = String
+
+    @property
+    def cls(self):
+        raise NotImplementedError
+
+    def process_bind_param(self, value, dialect):
+        return value.name
+
+    def process_result_value(self, value, dialect):
+        return self.cls.parse(value)
 
 
 def type_coercing_validator(**attrs):
