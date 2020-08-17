@@ -324,6 +324,14 @@ def startgame(chat_id):
     session.commit()
 
 
+def get_centers(chat_id):
+    session = Session()
+    return {
+        center.terr: center.owner.nation if center.owner else None
+        for center in session.query(Center).filter_by(game_id=chat_id)
+    }
+
+
 #from operator import attrgetter
 #
 #from board import Board
