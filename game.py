@@ -18,8 +18,11 @@
   ############################################################################
 
 
+import random
+
 from enum import auto
 from utils import StrEnum, auto_repr
+from functools import wraps
 
 from sqlalchemy import Column, Boolean, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship, validates
@@ -28,7 +31,7 @@ from sqlalchemy.types import TypeDecorator
 
 import orders
 
-from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator
+from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator, Session
 from board import Nation, NationColumn, UnitType, UnitTypeColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
 
 
@@ -121,7 +124,7 @@ class Player(ORMBase):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     game_id = Column(Integer, ForeignKey("games.id"), nullable=False)
-    nation = Column(NationColumn, nullable=False)
+    nation = Column(NationColumn)
     ready = Column(Boolean, nullable=False)
 
     __table_args__ = (
@@ -139,12 +142,10 @@ class Player(ORMBase):
             id=int,
             user_id=int,
             game_id=int,
-            nation=Nation,
+            nation=Nation.parse,
             ready=bool)
 
-    def __init__(self, id, nation):
-        self.id = id
-        self.nation = nation
+    def __init__(self, nation=None):
         self.ready = False
 
 
@@ -153,8 +154,8 @@ class Game(ORMBase):
     __tablename__ = "games"
 
     id = Column(Integer, primary_key=True)
-    start_date = Column(DateColumn, nullable=False)
-    game_date = Column(DateColumn, nullable=False)
+    start_date = Column(DateColumn)
+    game_date = Column(DateColumn)
     state = Column(StateColumn, nullable=False)
 
     players = relationship(
@@ -177,6 +178,12 @@ class Game(ORMBase):
             self.execute_transition(state)
         return state
 
+    def __init__(self, id, start_date, game_date=None, state=GameState.DEFAULT):
+        self.id = id
+        self.start_date = start_date
+        self.game_date = game_date if game_date is not None else start_date
+        self.state = state
+
     state_transitions = {
         (GameState.CREATED, GameState.MAIN):    None,
         (GameState.MAIN,    GameState.RETREAT): None,
@@ -195,12 +202,6 @@ class Game(ORMBase):
                 f"is an invalid state transition") from e
         if transition_function:
             transition_function(self)
-
-    def __init__(self, id, start_date, game_date=None, state=GameState.DEFAULT):
-        self.id = id
-        self.start_date = start_date
-        self.game_date = game_date if game_date is not None else start_date
-        self.state = state
 
 
 @auto_repr
@@ -246,6 +247,37 @@ class Center(ORMBase):
 
     def __init__(self, terr):
         self.terr = terr
+
+
+# GAME API
+###########
+
+class GameError(Exception):
+    pass
+
+
+def newgame(chat_id, user_id):
+    session = Session()
+    game = Game(chat_id, 1899*2) # TODO: set year
+    session.add(game)
+    session.commit()
+    join(chat_id, user_id)
+
+
+def join(chat_id, user_id):
+    session = Session()
+    game = session.query(Game).get(chat_id)
+    user = session.query(User).get(user_id)
+    if user is None:
+        user = User(user_id)
+        user.cur_game = game
+        session.add(user)
+    player = Player()
+    player.nation = random.choice(tuple(set(Nation) - {p.nation for p in game.players.values()})) # TODO: make nation choosable
+    player.user = user
+    player.game = game
+    session.add(player)
+    session.commit()
 
 
 #from operator import attrgetter

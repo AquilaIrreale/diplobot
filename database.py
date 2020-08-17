@@ -18,12 +18,14 @@
   ############################################################################
 
 
-from sqlalchemy import String
-from sqlalchemy.orm import validates
+from sqlalchemy import create_engine, String
+from sqlalchemy.orm import validates, sessionmaker
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
 
 
+engine = create_engine("sqlite:///diplobot.db", echo=True)
+Session = sessionmaker(bind=engine)
 ORMBase = declarative_base()
 
 
