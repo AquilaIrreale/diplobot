@@ -26,10 +26,11 @@ from functools import wraps
 
 from sqlalchemy import Column, Boolean, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship, validates
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.types import TypeDecorator
 
-import orders
+from orders import Order
 
 from database import (
         ORMBase,
@@ -338,6 +339,31 @@ def get_units(chat_id):
         unit.terr: (unit.owner.nation if unit.owner else None, unit.type)
         for unit in session.query(Unit).filter_by(game_id=chat_id)
     }
+
+
+def register_order(chat_id, user_id, order):
+    session = Session()
+    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    session.query(Order).filter_by(player_id=player.id, terr=order.terr).delete()
+    order.player = player
+    session.add(order)
+    session.commit()
+
+
+def get_orders(chat_id, user_id):
+    session = Session()
+    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    return sorted(player.orders)
+
+
+def delete_order(chat_id, user_id, i):
+    session = Session()
+    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    sorted_orders = sorted(player.orders)
+    order = sorted_orders[i]
+    session.query(Order).filter_by(player_id=player.id, terr=order.terr).delete()
+    session.expunge(order)
+    session.commit()
 
 
 #from operator import attrgetter

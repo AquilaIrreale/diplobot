@@ -24,8 +24,6 @@ from functools import total_ordering
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
-import game
-
 from database import ORMBase, type_coercing_validator
 from board import UnitType, Terr, Coast, TerrCoast, UnitTypeColumn, TerrColumn, CoastColumn
 from utils import auto_repr
