@@ -218,6 +218,13 @@ with open("assets/supply_centers") as f:
             supply_centers[Terr(t)] = Nation.parse(n) if n else None
 
 
+default_units = {}
+with open("assets/default_units") as f:
+    for line in f:
+        tc, u = line.split()
+        default_units[TerrCoast(tc)] = UnitType(u)
+
+
 #def strip_coast(t):
 #    return t[:3]
 #
