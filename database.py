@@ -74,7 +74,7 @@ class UppercaseStringEnumColumn(TypeDecorator):
 def type_coercing_validator(**attrs):
     @validates(*attrs)
     def _validator(self, attr, val):
-        return attrs[attr](val)
+        return attrs[attr](val) if val is not None else None
     return _validator
 
 

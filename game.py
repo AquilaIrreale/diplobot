@@ -31,8 +31,24 @@ from sqlalchemy.types import TypeDecorator
 
 import orders
 
-from database import ORMBase, UserStringColumn, StringEnumColumn, type_coercing_validator, Session
-from board import Nation, NationColumn, UnitType, UnitTypeColumn, Terr, TerrColumn, TerrCoast, TerrCoastColumn
+from database import (
+        ORMBase,
+        UserStringColumn,
+        StringEnumColumn,
+        type_coercing_validator,
+        Session)
+
+from board import (
+        supply_centers,
+        default_units,
+        Nation,
+        NationColumn,
+        UnitType,
+        UnitTypeColumn,
+        Terr,
+        TerrColumn,
+        TerrCoast,
+        TerrCoastColumn)
 
 
 class GameState(StrEnum):
@@ -192,6 +208,18 @@ class Game(ORMBase):
         (GameState.BUILD,   GameState.MAIN):    None
     }
 
+    @classmethod
+    def register_transition_handler(cls, s1, s2, f):
+        if not callable(f):
+            raise TypeError("f must be callable")
+        if not isinstance(s1, GameState):
+            raise TypeError("s1 must be a GameState")
+        if not isinstance(s2, GameState):
+            raise TypeError("s2 must be a GameState")
+        if (s1, s2) not in cls.state_transitions:
+            raise ValueError(f"{s1} to {s2} is not a valid state transition")
+        cls.state_transitions[(s1, s2)] = f
+
     def execute_transition(self, new_state):
         try:
             transition_function = (
@@ -211,7 +239,7 @@ class Unit(ORMBase):
     game_id = Column(Integer, ForeignKey("games.id"), primary_key=True)
     terr = Column(TerrCoastColumn, primary_key=True)
     type = Column(UnitTypeColumn, nullable=False)
-    owner_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("players.id"))
 
     game = relationship("Game", back_populates="units")
     owner = relationship("Player", back_populates="units")
@@ -277,6 +305,22 @@ def join(chat_id, user_id):
     player.user = user
     player.game = game
     session.add(player)
+    session.commit()
+
+
+def startgame(chat_id):
+    session = Session()
+    game = session.query(Game).get(chat_id)
+    for t, n in supply_centers.items():
+        center = Center(t)
+        center.game = game
+        center.owner = game.players.get(n, None)
+    for tc, u in default_units.items():
+        unit = Unit(tc, u)
+        unit.game = game
+        n = supply_centers[tc.terr]
+        unit.owner = game.players.get(n, None)
+    game.state = GameState.MAIN
     session.commit()
 
 
