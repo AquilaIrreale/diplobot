@@ -175,7 +175,10 @@ class TerrCoast(UserString):
         return f"TerrCoast({repr(str(self.terr))}, {repr(str(self.coast))})"
 
     def __str__(self):
-        return f"{str(self.terr)}({str(self.coast)})"
+        ret = str(self.terr)
+        if self.coast:
+            ret += f"({str(self.coast)})"
+        return ret
 
     def __eq__(self, other):
         other = TerrCoast(other)
