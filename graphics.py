@@ -36,7 +36,8 @@ nation_colors = {
     Nation.GERMANY: "#878787",
     Nation.ITALY: "#00FF00",
     Nation.RUSSIA: "#BE68D6",
-    Nation.TURKEY: "#F5F500"
+    Nation.TURKEY: "#F5F500",
+    None: "#FFFFFF"
 }
 
 board_master = ET.parse("assets/board.svg")
