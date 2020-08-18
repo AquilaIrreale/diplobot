@@ -341,9 +341,15 @@ def get_units(chat_id):
     }
 
 
+def get_player(chat_id, user_id, session=None):
+    if session is None:
+        session = Session()
+    return session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+
+
 def register_order(chat_id, user_id, order):
     session = Session()
-    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    player = get_player(user_id, chat_id, session)
     session.query(Order).filter_by(player_id=player.id, terr=order.terr).delete()
     order.player = player
     session.add(order)
@@ -352,18 +358,46 @@ def register_order(chat_id, user_id, order):
 
 def get_orders(chat_id, user_id):
     session = Session()
-    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    player = get_player(user_id, chat_id, session)
     return sorted(player.orders)
 
 
 def delete_order(chat_id, user_id, i):
     session = Session()
-    player = session.query(Player).filter_by(game_id=chat_id, user_id=user_id).one()
+    player = get_player(user_id, chat_id, session)
     sorted_orders = sorted(player.orders)
     order = sorted_orders[i]
     session.query(Order).filter_by(player_id=player.id, terr=order.terr).delete()
     session.expunge(order)
     session.commit()
+
+
+def set_ready(chat_id, user_id, ready=True):
+    session = Session()
+    player = get_player(user_id, chat_id, session)
+    player.ready = ready
+    session.commit()
+    if ready:
+        check_ready(chat_id)
+
+
+def check_ready(chat_id):
+    session = Session()
+    game = session.query(Game).get(chat_id)
+    players = session.query(Player).filter_by(game_id=chat_id)
+    if all(p.ready for p in players):
+        if game.state is GameState.MAIN:
+            adjudicate(chat_id)
+        elif game.state is GameState.RETREAT:
+            execute_retreats(chat_id)
+
+
+def adjudicate(chat_id):
+    pass
+
+
+def execute_retreats(chat_id):
+    pass
 
 
 #from operator import attrgetter
